@@ -1072,7 +1072,7 @@ impl LocationScene {
             }
             LocationAction::Play(variant) => {
                 self.behaviors.trigger(
-                    NextBehavior::Playing(variant),
+                    NextBehavior::Playing(variant, false),
                     ctx,
                     &mut self.character,
                 );
