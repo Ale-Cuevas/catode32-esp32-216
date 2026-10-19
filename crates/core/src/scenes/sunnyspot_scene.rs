@@ -45,11 +45,14 @@ const UNSEEN: u8 = u8::MAX;
 /// Hill-climbing steps per puzzle before settling for the hardest layout
 /// found so far.
 const MAX_STEPS: u32 = 400;
+/// Steps a search carried over from the previous level must take before its
+/// puzzle is used, so consecutive levels don't share a furniture layout.
+const MIN_STEPS: u32 = 20;
 
 /// Milliseconds of search per frame while waiting on a puzzle, and while
 /// building the next level's puzzle during play. At least one step always
 /// runs.
-const FOREGROUND_BUDGET_MS: u64 = 40;
+const FOREGROUND_BUDGET_MS: u64 = 60;
 const BACKGROUND_BUDGET_MS: u64 = 15;
 
 const UNDO_LEN: usize = 32;
@@ -190,7 +193,7 @@ fn level_params(level: u32) -> (u8, u8, u8) {
     match level {
         1..=4 => (6, 10, 4 + 3 * level as u8),
         5..=8 => (7, 15, 2 * level as u8),
-        _ => (8, 19, (5 + level).min(22) as u8),
+        _ => (8, 19, (3 + level).min(22) as u8),
     }
 }
 
@@ -232,7 +235,9 @@ impl Scratch {
     }
 
     fn slot(&self, state: u64) -> usize {
-        let mut h = (state.wrapping_mul(0x9E37_79B9_7F4A_7C15) >> 40) as usize & (HASH_SIZE - 1);
+        // 32-bit mixing; a 64-bit multiply is costly on the C6's rv32 core.
+        let folded = state as u32 ^ ((state >> 32) as u32).rotate_left(16);
+        let mut h = (folded.wrapping_mul(0x9E37_79B1) >> 16) as usize & (HASH_SIZE - 1);
         loop {
             let idx = self.hash[h] as usize;
             if idx == 0 || self.states[idx - 1] == state {
@@ -443,17 +448,35 @@ struct Puzzle {
 struct Generator {
     level: u32,
     climber: Option<Climber>,
+    /// The climber came from the previous level's search.
+    carried: bool,
     steps: u32,
+    /// Time spent searching, for the timing log.
+    busy_ms: u64,
     ready: Option<Puzzle>,
 }
 
 impl Generator {
     fn new(level: u32) -> Self {
-        Self { level, climber: None, steps: 0, ready: None }
+        Self { level, climber: None, carried: false, steps: 0, busy_ms: 0, ready: None }
+    }
+
+    /// A search for `level` that carries on from `prev`'s layout when the
+    /// board is the same size, so it starts near the last difficulty.
+    fn follow(level: u32, prev: &Generator) -> Self {
+        let mut next = Self::new(level);
+        if level_params(level).0 == level_params(prev.level).0 {
+            next.climber = prev.climber;
+            next.carried = next.climber.is_some();
+        }
+        next
     }
 
     /// Search until the puzzle is ready or `budget_ms` has passed.
     fn run(&mut self, rng: &mut u32, budget_ms: u64) {
+        if self.ready.is_some() {
+            return;
+        }
         let started = Instant::now();
         while self.ready.is_none() {
             self.step(rng);
@@ -461,22 +484,34 @@ impl Generator {
                 break;
             }
         }
+        self.busy_ms += started.elapsed().as_millis();
+        if let Some(p) = self.ready {
+            println!(
+                "[SunnySpot] level {} ready: par {} after {} steps, {} ms",
+                self.level, p.par, self.steps, self.busy_ms
+            );
+        }
     }
 
     fn step(&mut self, rng: &mut u32) {
         let (n, pieces, target) = level_params(self.level);
+        let min_steps = if self.carried { MIN_STEPS } else { 0 };
         let climber = self.climber.get_or_insert_with(|| Climber::new(n, pieces, rng));
-        if climber.depth < Some(target) && self.steps < MAX_STEPS {
+        let reached = climber.depth >= Some(target) && self.steps >= min_steps;
+        if !reached && self.steps < MAX_STEPS {
             climber.step(rng);
             self.steps += 1;
             return;
         }
-        // A search that stalled well short of the target starts over.
+        // The climb never loses ground, so where it stands is the best found.
         match climber.puzzle(target, rng) {
-            Some((start, par)) if par >= target - target / 3 => {
-                self.ready = Some(Puzzle { layout: climber.layout, start, par });
+            Some((start, par)) => self.ready = Some(Puzzle { layout: climber.layout, start, par }),
+            // Nothing to solve at all; start over.
+            None => {
+                self.climber = None;
+                self.carried = false;
+                self.steps = 0;
             }
-            _ => *self = Self::new(self.level),
         }
     }
 }
@@ -576,11 +611,12 @@ impl SunnySpotScene {
         }
     }
 
-    /// Wait for a puzzle for the current level, from a fresh search if the
-    /// pending one is for another level or `fresh` is set.
+    /// Wait for a puzzle for the current level. The pending search is kept
+    /// if it is for this level, unless `fresh` asks for a new board; a new
+    /// search carries on from the current one's layout.
     fn start_generating(&mut self, fresh: bool) {
         if fresh || self.generator.level != self.level {
-            self.generator = Generator::new(self.level);
+            self.generator = Generator::follow(self.level, &self.generator);
         }
         self.state = State::Generating;
         self.character.set_pose(PoseId::SittingSideNeutral);
@@ -689,7 +725,7 @@ impl SunnySpotScene {
         crate::i18n::substitute(&mut text, t!("Moves: {n}"), &[("n", num.as_str())]);
         let _ = text.push('\n');
         let _ = text.push_str(t!("Par:"));
-        let _ = write!(text, "{}\n", self.puzzle.par);
+        let _ = write!(text, " {}\n", self.puzzle.par);
         let _ = text.push_str(t!("A: Next"));
         self.win_popup.set_text(text.as_str(), false, true);
     }
@@ -793,7 +829,7 @@ impl SunnySpotScene {
 
         buf.clear();
         let _ = buf.push_str(t!("Par:"));
-        let _ = write!(buf, "{}", self.puzzle.par);
+        let _ = write!(buf, " {}", self.puzzle.par);
         r.draw_text_small(buf.as_str(), Point::new(PANEL_X, 16));
     }
 }
@@ -817,7 +853,8 @@ impl Scene for SunnySpotScene {
         self.level = 1;
         self.session_points = 0;
         self.menu_active = false;
-        self.start_generating(true);
+        self.generator = Generator::new(1);
+        self.start_generating(false);
     }
 
     fn exit(&mut self, ctx: &mut GameContext) {
@@ -852,7 +889,7 @@ impl Scene for SunnySpotScene {
             if let Some(puzzle) = self.generator.ready.take() {
                 self.puzzle = puzzle;
                 self.reset_board();
-                self.generator = Generator::new(self.level + 1);
+                self.generator = Generator::follow(self.level + 1, &self.generator);
             }
         } else {
             self.generator.run(&mut rng, BACKGROUND_BUDGET_MS);
@@ -957,9 +994,12 @@ mod tests {
 
     #[test]
     fn generated_par_is_the_shortest_solution() {
-        for level in [1, 4, 5, 9] {
-            let mut rng = 0x1234_5678 + level;
-            let mut generator = Generator::new(level);
+        // Levels in order, as play goes: fresh searches at each board size
+        // and carried-over ones in between.
+        let mut rng = 0x1234_5678;
+        let mut generator = Generator::new(1);
+        for level in 1..=10 {
+            generator = Generator::follow(level, &generator);
             while generator.ready.is_none() {
                 generator.step(&mut rng);
             }
