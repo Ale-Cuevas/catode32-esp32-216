@@ -27,6 +27,7 @@ pub mod pet_info_scene;
 pub mod pipes_scene;
 pub mod platformer_scene;
 pub mod pose_scene;
+pub mod reversi_scene;
 pub mod snake_scene;
 pub mod social_scene;
 pub mod stats_scene;
@@ -72,6 +73,7 @@ use pet_info_scene::PetInfoScene;
 use pipes_scene::PipesScene;
 use platformer_scene::PlatformerScene;
 use pose_scene::PoseScene;
+use reversi_scene::ReversiScene;
 use snake_scene::SnakeScene;
 use social_scene::SocialScene;
 use stats_scene::StatsScene;
@@ -125,6 +127,7 @@ crate::dispatch_enum! {
         Herding(HerdingScene)                     = HerdingScene::new(),
         Meowltiply(MeowltiplyScene)               = MeowltiplyScene::new(),
         Sudokat(SudokatScene)                     = SudokatScene::new(),
+        Reversi(ReversiScene)                     = ReversiScene::new(),
         Platformer(PlatformerScene)               = PlatformerScene::new(),
         VacationPark(VacationParkScene)           = VacationParkScene::new(),
         VacationForest(VacationForestScene)       = VacationForestScene::new(),
