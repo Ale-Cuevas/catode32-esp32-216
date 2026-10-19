@@ -18,6 +18,7 @@ pub mod herding_scene;
 pub mod inside_scene;
 pub mod kitchen_scene;
 pub mod lightsout_scene;
+pub mod luckylanding_scene;
 pub mod maze_scene;
 pub mod memory_scene;
 pub mod meowltiply_scene;
@@ -66,6 +67,7 @@ use herding_scene::HerdingScene;
 use inside_scene::InsideScene;
 use kitchen_scene::KitchenScene;
 use lightsout_scene::LightsOutScene;
+use luckylanding_scene::LuckyLandingScene;
 use maze_scene::MazeScene;
 use memory_scene::MemoryScene;
 use meowltiply_scene::MeowltiplyScene;
@@ -134,6 +136,7 @@ crate::dispatch_enum! {
         Reversi(ReversiScene)                     = ReversiScene::new(),
         SunnySpot(SunnySpotScene)                 = SunnySpotScene::new(),
         Purrimeter(PurrimeterScene)               = PurrimeterScene::new(),
+        LuckyLanding(LuckyLandingScene)           = LuckyLandingScene::new(),
         Platformer(PlatformerScene)               = PlatformerScene::new(),
         VacationPark(VacationParkScene)           = VacationParkScene::new(),
         VacationForest(VacationForestScene)       = VacationForestScene::new(),
