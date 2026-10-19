@@ -43,6 +43,7 @@ pub mod vacation_base;
 pub mod vacation_beach_scene;
 pub mod vacation_forest_scene;
 pub mod vacation_park_scene;
+pub mod yarnball_scene;
 pub mod zoomies_scene;
 
 use crate::scene::{Scene, SceneId};
@@ -91,6 +92,7 @@ use vacation_aquarium_scene::VacationAquariumScene;
 use vacation_beach_scene::VacationBeachScene;
 use vacation_forest_scene::VacationForestScene;
 use vacation_park_scene::VacationParkScene;
+use yarnball_scene::YarnballScene;
 use zoomies_scene::ZoomiesScene;
 
 crate::dispatch_enum! {
@@ -137,6 +139,7 @@ crate::dispatch_enum! {
         SunnySpot(SunnySpotScene)                 = SunnySpotScene::new(),
         Purrimeter(PurrimeterScene)               = PurrimeterScene::new(),
         LuckyLanding(LuckyLandingScene)           = LuckyLandingScene::new(),
+        Yarnball(YarnballScene)                   = YarnballScene::new(),
         Platformer(PlatformerScene)               = PlatformerScene::new(),
         VacationPark(VacationParkScene)           = VacationParkScene::new(),
         VacationForest(VacationForestScene)       = VacationForestScene::new(),
