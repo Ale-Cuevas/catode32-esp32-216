@@ -28,6 +28,7 @@ const MINIGAMES: &[MenuItem<SceneId>] = &[
     MenuItem { label: t!("Maze"),      icon: Some(icons::MAZE),       submenu: None, action: Some(SceneId::Maze),       confirm: None, confirm_on_vacation: END_VAC },
     MenuItem { label: t!("TicTacToe"), icon: Some(icons::TICTACTOE),  submenu: None, action: Some(SceneId::TicTacToe),  confirm: None, confirm_on_vacation: END_VAC },
     MenuItem { label: t!("Reversi"),   icon: Some(icons::REVERSI),    submenu: None, action: Some(SceneId::Reversi),    confirm: None, confirm_on_vacation: END_VAC },
+    MenuItem { label: t!("Purrimeter"), icon: Some(icons::PURRIMETER), submenu: None, action: Some(SceneId::Purrimeter), confirm: None, confirm_on_vacation: END_VAC },
     MenuItem { label: t!("Hanjie"),    icon: Some(icons::HANJIE),     submenu: None, action: Some(SceneId::Hanjie),     confirm: None, confirm_on_vacation: END_VAC },
     MenuItem { label: t!("Lights Out"), icon: Some(icons::POWER),     submenu: None, action: Some(SceneId::LightsOut),  confirm: None, confirm_on_vacation: END_VAC },
     MenuItem { label: t!("Pipes"),     icon: Some(icons::PLUMBING),   submenu: None, action: Some(SceneId::Pipes),      confirm: None, confirm_on_vacation: END_VAC },

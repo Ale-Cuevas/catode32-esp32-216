@@ -27,6 +27,7 @@ pub mod pet_info_scene;
 pub mod pipes_scene;
 pub mod platformer_scene;
 pub mod pose_scene;
+pub mod purrimeter_scene;
 pub mod reversi_scene;
 pub mod snake_scene;
 pub mod social_scene;
@@ -74,6 +75,7 @@ use pet_info_scene::PetInfoScene;
 use pipes_scene::PipesScene;
 use platformer_scene::PlatformerScene;
 use pose_scene::PoseScene;
+use purrimeter_scene::PurrimeterScene;
 use reversi_scene::ReversiScene;
 use snake_scene::SnakeScene;
 use social_scene::SocialScene;
@@ -131,6 +133,7 @@ crate::dispatch_enum! {
         Sudokat(SudokatScene)                     = SudokatScene::new(),
         Reversi(ReversiScene)                     = ReversiScene::new(),
         SunnySpot(SunnySpotScene)                 = SunnySpotScene::new(),
+        Purrimeter(PurrimeterScene)               = PurrimeterScene::new(),
         Platformer(PlatformerScene)               = PlatformerScene::new(),
         VacationPark(VacationParkScene)           = VacationParkScene::new(),
         VacationForest(VacationForestScene)       = VacationForestScene::new(),
