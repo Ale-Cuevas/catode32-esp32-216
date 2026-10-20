@@ -31,6 +31,7 @@ const MINIGAMES: &[MenuItem<SceneId>] = &[
     MenuItem { label: t!("Purrimeter"), icon: Some(icons::PURRIMETER), submenu: None, action: Some(SceneId::Purrimeter), confirm: None, confirm_on_vacation: END_VAC },
     MenuItem { label: t!("Yarnball"),  icon: Some(icons::YARNBALL),   submenu: None, action: Some(SceneId::Yarnball),   confirm: None, confirm_on_vacation: END_VAC },
     MenuItem { label: t!("Lucky Landing"), icon: Some(icons::LUCKY_LANDING), submenu: None, action: Some(SceneId::LuckyLanding), confirm: None, confirm_on_vacation: END_VAC },
+    MenuItem { label: t!("Balancing Act"), icon: Some(icons::BALANCING_ACT), submenu: None, action: Some(SceneId::BalancingAct), confirm: None, confirm_on_vacation: END_VAC },
     MenuItem { label: t!("Hanjie"),    icon: Some(icons::HANJIE),     submenu: None, action: Some(SceneId::Hanjie),     confirm: None, confirm_on_vacation: END_VAC },
     MenuItem { label: t!("Lights Out"), icon: Some(icons::POWER),     submenu: None, action: Some(SceneId::LightsOut),  confirm: None, confirm_on_vacation: END_VAC },
     MenuItem { label: t!("Pipes"),     icon: Some(icons::PLUMBING),   submenu: None, action: Some(SceneId::Pipes),      confirm: None, confirm_on_vacation: END_VAC },

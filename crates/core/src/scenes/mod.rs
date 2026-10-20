@@ -1,5 +1,6 @@
 pub mod adoption_scene;
 pub mod bedroom_scene;
+pub mod balancing_scene;
 pub mod breakout_scene;
 pub mod credits_scene;
 pub mod debug_behaviors_scene;
@@ -50,6 +51,7 @@ use crate::scene::{Scene, SceneId};
 
 use adoption_scene::AdoptionScene;
 use bedroom_scene::BedroomScene;
+use balancing_scene::BalancingScene;
 use breakout_scene::BreakoutScene;
 use credits_scene::CreditsScene;
 use debug_behaviors_scene::DebugBehaviorsScene;
@@ -140,6 +142,7 @@ crate::dispatch_enum! {
         Purrimeter(PurrimeterScene)               = PurrimeterScene::new(),
         LuckyLanding(LuckyLandingScene)           = LuckyLandingScene::new(),
         Yarnball(YarnballScene)                   = YarnballScene::new(),
+        BalancingAct(BalancingScene)              = BalancingScene::new(),
         Platformer(PlatformerScene)               = PlatformerScene::new(),
         VacationPark(VacationParkScene)           = VacationParkScene::new(),
         VacationForest(VacationForestScene)       = VacationForestScene::new(),
