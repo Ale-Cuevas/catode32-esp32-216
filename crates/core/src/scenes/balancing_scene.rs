@@ -357,7 +357,7 @@ impl BalancingScene {
         self.fall_vy = 0.0;
         self.fall_stop = None;
         self.poof = None;
-        self.state = State::Ready;
+        self.state = State::Playing;
         self.spawn_box();
         self.generate_sky(rng);
         self.generate_plants(rng);
@@ -831,6 +831,8 @@ impl Scene for BalancingScene {
         let mut rng = ctx.rng;
         self.reset_round(&mut rng);
         ctx.rng = rng;
+        // Only the first round shows the controls popup.
+        self.state = State::Ready;
     }
 
     fn exit(&mut self, ctx: &mut GameContext) {
