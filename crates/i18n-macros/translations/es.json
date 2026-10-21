@@ -483,5 +483,17 @@
   "Fert: No": "No",
   "Fert: Low": "Bajo",
   "Fert: OK": "OK",
-  "Fert: Over": "Mucho"
+  "Fert: Over": "Mucho",
+  "Mini Golf": "Minigolf",
+  "Hole": "Hoyo",
+  "Par": "Par",
+  "Hole in one!": "¡Hoyo en uno!",
+  "Eagle!": "¡Eagle!",
+  "Birdie!": "¡Birdie!",
+  "Bogey": "Bogey",
+  "Double bogey": "Doble bogey",
+  "Picked up": "Recogida",
+  "Round over": "Fin de ronda",
+  "New Round": "Nueva ronda",
+  "New Green": "Nueva pista"
 }

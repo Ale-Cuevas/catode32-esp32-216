@@ -483,5 +483,17 @@
   "Fert: No": "Nee",
   "Fert: Low": "Weinig",
   "Fert: OK": "OK",
-  "Fert: Over": "Te veel"
+  "Fert: Over": "Te veel",
+  "Mini Golf": "Midgetgolf",
+  "Hole": "Hole",
+  "Par": "Par",
+  "Hole in one!": "Hole-in-one!",
+  "Eagle!": "Eagle!",
+  "Birdie!": "Birdie!",
+  "Bogey": "Bogey",
+  "Double bogey": "Dubbele bogey",
+  "Picked up": "Opgeraapt",
+  "Round over": "Ronde voorbij",
+  "New Round": "Nieuwe ronde",
+  "New Green": "Nieuwe baan"
 }

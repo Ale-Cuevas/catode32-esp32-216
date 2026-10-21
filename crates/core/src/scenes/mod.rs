@@ -24,6 +24,7 @@ pub mod maze_scene;
 pub mod memory_scene;
 pub mod meowltiply_scene;
 pub mod menu_scene;
+pub mod minigolf_scene;
 pub mod outside_scene;
 pub mod pet_info_scene;
 pub mod pipes_scene;
@@ -77,6 +78,7 @@ use memory_scene::MemoryScene;
 use meowltiply_scene::MeowltiplyScene;
 use menu_scene::MenuScene;
 use outside_scene::OutsideScene;
+use minigolf_scene::MiniGolfScene;
 use pet_info_scene::PetInfoScene;
 use pipes_scene::PipesScene;
 use platformer_scene::PlatformerScene;
@@ -146,6 +148,7 @@ crate::dispatch_enum! {
         Yarnball(YarnballScene)                   = YarnballScene::new(),
         BalancingAct(BalancingScene)              = BalancingScene::new(),
         SleepingDogs(SleepingDogsScene)           = SleepingDogsScene::new(),
+        MiniGolf(MiniGolfScene)                   = MiniGolfScene::new(),
         Platformer(PlatformerScene)               = PlatformerScene::new(),
         VacationPark(VacationParkScene)           = VacationParkScene::new(),
         VacationForest(VacationForestScene)       = VacationForestScene::new(),

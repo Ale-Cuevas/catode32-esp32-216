@@ -40,6 +40,7 @@ const MINIGAMES: &[MenuItem<SceneId>] = &[
     MenuItem { label: t!("Meowltiply"), icon: Some(icons::MEOWLTIPLY), submenu: None, action: Some(SceneId::Meowltiply), confirm: None, confirm_on_vacation: END_VAC },
     MenuItem { label: t!("Sleeping Dogs"), icon: Some(icons::SLEEPING_DOGS), submenu: None, action: Some(SceneId::SleepingDogs), confirm: None, confirm_on_vacation: END_VAC },
     MenuItem { label: t!("Sudokat"),   icon: Some(icons::SUDOKAT),    submenu: None, action: Some(SceneId::Sudokat),    confirm: None, confirm_on_vacation: END_VAC },
+    MenuItem { label: t!("Mini Golf"), icon: Some(icons::MINI_GOLF),  submenu: None, action: Some(SceneId::MiniGolf),   confirm: None, confirm_on_vacation: END_VAC },
 ];
 
 const VACATIONS: &[MenuItem<SceneId>] = &[
