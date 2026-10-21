@@ -31,6 +31,7 @@ pub mod platformer_scene;
 pub mod pose_scene;
 pub mod purrimeter_scene;
 pub mod reversi_scene;
+pub mod sleepingdogs_scene;
 pub mod snake_scene;
 pub mod social_scene;
 pub mod stats_scene;
@@ -82,6 +83,7 @@ use platformer_scene::PlatformerScene;
 use pose_scene::PoseScene;
 use purrimeter_scene::PurrimeterScene;
 use reversi_scene::ReversiScene;
+use sleepingdogs_scene::SleepingDogsScene;
 use snake_scene::SnakeScene;
 use social_scene::SocialScene;
 use stats_scene::StatsScene;
@@ -143,6 +145,7 @@ crate::dispatch_enum! {
         LuckyLanding(LuckyLandingScene)           = LuckyLandingScene::new(),
         Yarnball(YarnballScene)                   = YarnballScene::new(),
         BalancingAct(BalancingScene)              = BalancingScene::new(),
+        SleepingDogs(SleepingDogsScene)           = SleepingDogsScene::new(),
         Platformer(PlatformerScene)               = PlatformerScene::new(),
         VacationPark(VacationParkScene)           = VacationParkScene::new(),
         VacationForest(VacationForestScene)       = VacationForestScene::new(),
