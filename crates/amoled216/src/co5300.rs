@@ -96,6 +96,11 @@ impl<B: QspiBus, RST: OutputPin> Co5300<B, RST> {
         (self.bus, self.rst)
     }
 
+    #[cfg(test)]
+    pub(crate) fn bus_mut(&mut self) -> &mut B {
+        &mut self.bus
+    }
+
     /// Hardware reset, then the init sequence. Leaves the panel on, at
     /// `DEFAULT_BRIGHTNESS`, in the board orientation. Takes about 540 ms.
     pub fn init(&mut self, delay: &mut impl DelayNs) -> Result<(), Error<B::Error, RST::Error>> {

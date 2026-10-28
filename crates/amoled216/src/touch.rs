@@ -48,6 +48,15 @@ fn dpad_direction(zone: &Rect, x: u16, y: u16) -> u8 {
     }
 }
 
+/// Game button each physical key stands for: BOOT is back, USER opens the menu.
+pub const BOOT_BUTTON: u8 = button::B;
+pub const USER_BUTTON: u8 = button::MENU1;
+
+/// Button bits for the two physical keys (true = pressed).
+pub const fn key_mask(boot: bool, user: bool) -> u8 {
+    (if boot { button::bit(BOOT_BUTTON) } else { 0 }) | (if user { button::bit(USER_BUTTON) } else { 0 })
+}
+
 /// Empty reads in a row before a touch counts as released. One dropped read
 /// mid-hold must not let go of a held direction.
 pub const RELEASE_READS: u8 = 2;
@@ -176,6 +185,15 @@ mod tests {
         assert_eq!(hit_test(&[a, b]), bit(A) | bit(B));
         assert_eq!(hit_test(&[]), 0);
         assert_eq!(hit_test(&[(cx, cy)]), 0);
+    }
+
+    #[test]
+    fn keys_map_to_b_and_menu1_and_combine_with_touch() {
+        assert_eq!(key_mask(false, false), 0);
+        assert_eq!(key_mask(true, false), bit(B));
+        assert_eq!(key_mask(false, true), bit(MENU1));
+        assert_eq!(key_mask(true, true), bit(B) | bit(MENU1));
+        assert_eq!(hit_test(&[center_of(A)]) | key_mask(true, false), bit(A) | bit(B));
     }
 
     fn center_of(b: u8) -> (u16, u16) {

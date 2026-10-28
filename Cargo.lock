@@ -122,6 +122,7 @@ checksum = "8f1fe948ff07f4bd06c30984e69f5b4899c516a3ef74f34df92a2df2ab535495"
 name = "catode32-amoled216"
 version = "0.13.0"
 dependencies = [
+ "embedded-graphics",
  "embedded-hal 1.0.0",
 ]
 

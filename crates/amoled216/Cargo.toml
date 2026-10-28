@@ -7,4 +7,5 @@ license = "MIT"
 repository = "https://github.com/moonbench/catode32"
 
 [dependencies]
+embedded-graphics = "0.8.2"
 embedded-hal = "1.0"
