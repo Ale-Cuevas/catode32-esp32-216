@@ -40,7 +40,10 @@ There is **no I/O expander**. Display reset, touch reset and SD CS are plain GPI
 ## Display (CO5300, 480x480, QSPI)
 - Column/row offsets are 0/0. Write MADCTL `0x36 = 0xA0` right after init.
 - Partial-update windows must be 2-px aligned: x1/y1 even, x2/y2 odd. Every rect in `crates/amoled216/src/layout.rs` is checked for this at compile time.
-- Pixels are RGB565. The scaler sends them big-endian. **[assumed, confirm in WP3]**
+- Pixels are RGB565, sent big-endian (Arduino_GFX `MSB_32_16_16_SET` does the same). Not yet seen on the device.
+- QSPI protocol (Arduino_GFX `Arduino_ESP32QSPI`): 40 MHz, mode 0, CS driven by hand. Register writes are single-line `0x02`, `cmd<<8` (24-bit), params. Pixels are `0x32` + `0x003C00` on one line, then data on four lines. CS stays low for the whole burst.
+- Init (Arduino_GFX `Arduino_CO5300`): reset high 10 ms / low 200 ms / high 200 ms, `SLPOUT`, 120 ms, `FE=00 C4=80 3A=55 53=20 63=FF`, `DISPON`, `51=D0 58=00`, 10 ms, `INVOFF`, then the demo's `MADCTL=0xA0`. Display on/off: `DISPON`→`SLPOUT` / `DISPOFF`→`SLPIN`, 120 ms after each.
+- The AXP2101 is left at its power-on defaults. The display needs no PMIC setup in the demo. If the panel stays dark with a clean init log, check this first.
 - `setBrightness(0..255)`, display on/off commands are available. Black pixels are off.
 - The display takes SPI2, so SD has to use SPI3 (HSPI).
 
@@ -62,14 +65,14 @@ The demo leaves the rails at their power-on defaults and only sets the charge ta
 - The skill's "single target, replace the old board" rule does **not** apply here. Per CLAUDE.md, C6/C3 stay supported and the S3 becomes another cfg arm (`s3` feature) at the existing seams.
 - There is no addressable RGB LED, so `Led` becomes a no-op on `s3`.
 
-## Toolchain (verified 2026-10-28 by building `crates/s3-hello`)
+## Toolchain (verified 2026-10-28 by building `crates/s3-bringup`)
 ```bash
 cargo install espup espflash --locked   # espflash 4.6.0
 espup install --targets esp32s3          # adds the "esp" rustup toolchain + ~/export-esp.sh
 . ~/export-esp.sh                         # every new shell (Xtensa GCC on PATH, LIBCLANG_PATH)
-cd crates/s3-hello && cargo build --release   # or `cargo run --release` to flash + monitor
+cd crates/s3-bringup && cargo build --release   # or `cargo run --release` to flash + monitor
 ```
-`crates/s3-hello` is its own workspace with `rust-toolchain.toml` (`channel = "esp"`) and a `.cargo/config.toml`. Together they set the target `xtensa-esp32s3-none-elf`, `build-std = ["core"]`, the link args `-nostartfiles -Wl,-Tlinkall.x`, and the runner `espflash flash --monitor --chip esp32s3 --flash-size 16mb`. The root workspace still uses stable and RISC-V, so the C6/C3 builds are unchanged. The same esp crate versions as the C6 firmware build for `esp32s3`: esp-hal 1.2.2, esp-println 0.18, esp-backtrace 0.20 and esp-bootloader-esp-idf 0.6. esp-radio, esp-rtos and esp-storage have not been tried on the S3 yet (port plan, open question 1).
+`crates/s3-bringup` is its own workspace with `rust-toolchain.toml` (`channel = "esp"`) and a `.cargo/config.toml`. Together they set the target `xtensa-esp32s3-none-elf`, `build-std = ["core"]`, the link args `-nostartfiles -Wl,-Tlinkall.x`, and the runner `espflash flash --monitor --chip esp32s3 --flash-size 16mb`. The root workspace still uses stable and RISC-V, so the C6/C3 builds are unchanged. The same esp crate versions as the C6 firmware build for `esp32s3`: esp-hal 1.2.2 (with `unstable`, needed for half-duplex quad SPI), esp-println 0.18, esp-backtrace 0.20 and esp-bootloader-esp-idf 0.6. esp-radio, esp-rtos and esp-storage have not been tried on the S3 yet (port plan, open question 1).
 
 ## Still unverified on the device
 Touch swap/mirror flags, number of touch points, RGB565 byte order, PWR-sense polarity on GPIO16, IMU axis orientation, and whether the RTC keeps time through a full power-off.

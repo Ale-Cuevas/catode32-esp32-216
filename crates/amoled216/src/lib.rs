@@ -4,12 +4,16 @@
 //! decides where that frame and the touch controls go on the 480x480 panel
 //! (`layout`), turns the frame into RGB565 strips for the CO5300 (`scale`),
 //! and turns touch points into the 8-button mask `input::Buttons` expects
-//! (`touch`). `controls` rasterizes the on-screen buttons. No esp-hal here, so it is unit-tested on the host and shared by
+//! (`touch`). `controls` rasterizes the on-screen buttons, `co5300` drives
+//! the panel through a small `QspiBus` trait, and `panel` streams frames and
+//! controls to it. No esp-hal here, so it is unit-tested on the host and shared by
 //! the desktop sim and the firmware.
 #![cfg_attr(not(test), no_std)]
 
+pub mod co5300;
 pub mod controls;
 pub mod layout;
+pub mod panel;
 pub mod scale;
 pub mod touch;
 

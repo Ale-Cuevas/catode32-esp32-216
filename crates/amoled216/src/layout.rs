@@ -52,7 +52,8 @@ impl Rect {
         o.x >= self.x && o.y >= self.y && o.right() <= self.right() && o.bottom() <= self.bottom()
     }
 
-    const fn is_even_aligned(&self) -> bool {
+    /// Even x/y/w/h: what CO5300 windows need (even start, odd end).
+    pub const fn is_even_aligned(&self) -> bool {
         self.x.is_multiple_of(2) && self.y.is_multiple_of(2) && self.w.is_multiple_of(2) && self.h.is_multiple_of(2)
     }
 }

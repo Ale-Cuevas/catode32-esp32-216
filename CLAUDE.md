@@ -17,7 +17,7 @@ For anything the skill doesn't cover, check these board resources (Arduino/ESP-I
 - Waveshare demo repo (examples, pin config, schematic, CO5300 init): <https://github.com/waveshareteam/ESP32-S3-Touch-AMOLED-2.16/tree/main>
 - Spotpear wiki (specs, pinout, setup guides): <https://spotpear.com/wiki/ESP32-S3-2.16-inch-AMOLED-Display-Capacitive-TouchScreen.html>
 
-`docs/board-notes.md` summarizes the pins and display/touch facts the Rust port relies on. `crates/amoled216` holds the hardware-free 480x480 layout, the 1bpp→RGB565 scaler and the touch hit-testing (host-tested).
+`docs/board-notes.md` summarizes the pins and display/touch facts the Rust port relies on. Checks that need the board go in `docs/DEVICE_TESTS.md` (steps) and `docs/PENDING_TESTS.md` (one line each, with results). `crates/amoled216` holds the hardware-free 480x480 layout, the 1bpp→RGB565 scaler, the touch hit-testing and the CO5300 driver (written against a `QspiBus` trait, host-tested with a mock bus). `crates/s3-bringup` implements that bus on esp-hal and runs the display bring-up on the board.
 
 ## Commands
 
@@ -40,8 +40,8 @@ cargo run -p catode32-desktop --target x86_64-unknown-linux-gnu -- --amoled
 # AMOLED layout/scaler/touch crate tests (host)
 cargo test -p catode32-amoled216 --target x86_64-unknown-linux-gnu
 
-# ESP32-S3 hello-world (standalone crate, Xtensa `esp` toolchain from `espup install`)
-cd crates/s3-hello && . ~/export-esp.sh && cargo build --release   # `cargo run --release` flashes + monitors
+# ESP32-S3 display bring-up (standalone crate, Xtensa `esp` toolchain from `espup install`)
+cd crates/s3-bringup && . ~/export-esp.sh && cargo build --release   # `cargo run --release` flashes + monitors
 
 # Host tests (core crate, desktop feature)
 cargo test -p catode32-core --no-default-features --features desktop,lang-en --target x86_64-unknown-linux-gnu

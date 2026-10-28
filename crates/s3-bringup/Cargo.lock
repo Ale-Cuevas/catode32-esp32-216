@@ -86,9 +86,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1fd0f2584146f6f2ef48085050886acf353beff7305ebd1ae69500e27c67f64b"
 
 [[package]]
-name = "catode32-s3-hello"
+name = "catode32-amoled216"
 version = "0.13.0"
 dependencies = [
+ "embedded-hal 1.0.0",
+]
+
+[[package]]
+name = "catode32-s3-bringup"
+version = "0.13.0"
+dependencies = [
+ "catode32-amoled216",
+ "embedded-hal 1.0.0",
  "esp-backtrace",
  "esp-bootloader-esp-idf",
  "esp-hal",
