@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/core", "crates/firmware", "crates/desktop", "crates/i18n-macros"]
+members = ["crates/core", "crates/firmware", "crates/desktop", "crates/i18n-macros", "crates/amoled216"]
 default-members = ["crates/firmware"]
 resolver = "2"
 

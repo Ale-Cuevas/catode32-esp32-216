@@ -12,6 +12,13 @@ Catode32 is a virtual pet game for ESP32 (1-bit 128x64 SSD1306 OLED, 8 buttons, 
 
 **Use the `waveshare-amoled-216` skill whenever you need board-specific information.** That includes pins, display and touch drivers, init sequences, power rails, the PMIC, IMU, RTC and audio, toolchain and flashing setup, bring-up sketches, and device test plans. Load it before writing or changing any code that touches the S3 hardware, and don't guess board details that the skill covers.
 
+For anything the skill doesn't cover, check these board resources (Arduino/ESP-IDF, not Rust):
+
+- Waveshare demo repo (examples, pin config, schematic, CO5300 init): <https://github.com/waveshareteam/ESP32-S3-Touch-AMOLED-2.16/tree/main>
+- Spotpear wiki (specs, pinout, setup guides): <https://spotpear.com/wiki/ESP32-S3-2.16-inch-AMOLED-Display-Capacitive-TouchScreen.html>
+
+`docs/board-notes.md` summarizes the pins and display/touch facts the Rust port relies on. `crates/amoled216` holds the hardware-free 480x480 layout, the 1bpp→RGB565 scaler and the touch hit-testing (host-tested).
+
 ## Commands
 
 The workspace's default build target is `riscv32imac-unknown-none-elf` (`.cargo/config.toml`), and its default member is `crates/firmware`. Host builds and tests therefore need an explicit `--target`.
