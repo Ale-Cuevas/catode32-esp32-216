@@ -55,3 +55,25 @@ Things to record:
 - The INT low times from step 10.
 - The raw and panel values for the four corners (step 11).
 - Whether two points work (step 12) and whether the trail is continuous (step 14).
+
+## WP5: the game on the S3 (`crates/firmware-s3`)
+
+Run this once WP3 and WP4 pass. If either of them changed `MADCTL_BOARD`, the byte order or `BOARD_ORIENTATION`, those fixes carry over, since the game uses the same `amoled216` code.
+
+```bash
+. ~/export-esp.sh
+cd crates/firmware-s3
+cargo run --release     # build, flash, open the serial monitor
+```
+
+Controls: the on-screen D-pad, A, B, M1 and M2. **BOOT** is B (back) and **USER** is Menu1.
+
+| # | What the log says | What to do / check | If it's wrong |
+|---|---|---|---|
+| 15 | `[s3] touch Cst9220, fw 0x...`, then `catode32 v0.13.0 ... (ESP32-S3 AMOLED)` | The pet appears in the game area, 3x size, with the controls below it. | `[s3] display init failed` / `[s3] touch probe failed`: copy the line. A blank screen with a clean log: compare with WP3 step 2. |
+| 16 | (none) | Play: walk the pet with the D-pad, open the menu with M1 and with **USER**, go back with B and with **BOOT**. Hold a direction and press A at the same time (e.g. in the platformer). The pressed control lights up. | Note any button that does nothing or acts as another one. `[s3] touch read failed` appears once if the touch chip stops answering. |
+| 17 | `[Sleep] Entering basic sleep` after the idle timeout | Leave it alone until the screen turns off. Then tap the screen, or press BOOT. | It should wake on the touch and on BOOT/USER. If only the keys wake it, note it. |
+| 18 | (save on its own schedule, or from the debug menu) | Change something visible (feed the pet, rename it), wait for a save or trigger one, then tap RESET. | After the reboot the change is still there. If not, copy the boot log (storage lines). |
+| 19 | `[Power] Deep sleep (S3 stand-in: panel off, BOOT/USER resets)` | Trigger deep sleep from the Power debug menu. The screen goes dark. Touching the screen does nothing. Press **BOOT** or **USER**. | The board reboots into the game. This is a stand-in until WP6 adds real deep sleep. |
+| 20 | Wi-Fi scan log lines | Trigger a Wi-Fi scan from the debug menu. | Networks are found and the game keeps running. Copy any radio error. |
+| 21 | (none) | Leave the game running for 10 min. | No reset, no `[panic]` record on the Power debug screen, and the animation keeps going. |

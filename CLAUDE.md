@@ -17,7 +17,7 @@ For anything the skill doesn't cover, check these board resources (Arduino/ESP-I
 - Waveshare demo repo (examples, pin config, schematic, CO5300 init): <https://github.com/waveshareteam/ESP32-S3-Touch-AMOLED-2.16/tree/main>
 - Spotpear wiki (specs, pinout, setup guides): <https://spotpear.com/wiki/ESP32-S3-2.16-inch-AMOLED-Display-Capacitive-TouchScreen.html>
 
-`docs/board-notes.md` summarizes the pins and display/touch facts the Rust port relies on. Checks that need the board go in `docs/DEVICE_TESTS.md` (steps) and `docs/PENDING_TESTS.md` (one line each, with results). `crates/amoled216` holds the hardware-free 480x480 layout, the 1bpp→RGB565 scaler, the touch hit-testing and `TouchTracker`, the CO5300 driver (written against a `QspiBus` trait, host-tested with a mock bus) and the CST9220 touch driver (written against `embedded_hal::i2c::I2c`, host-tested with a mock). `crates/s3-bringup` implements the bus on esp-hal and runs the display and touch bring-up on the board.
+`docs/board-notes.md` summarizes the pins and display/touch facts the Rust port relies on. Checks that need the board go in `docs/DEVICE_TESTS.md` (steps) and `docs/PENDING_TESTS.md` (one line each, with results). `crates/amoled216` holds the hardware-free 480x480 layout, the 1bpp→RGB565 scaler, the touch hit-testing and `TouchTracker`, the CO5300 driver (written against a `QspiBus` trait, host-tested with a mock bus) and the CST9220 touch driver (written against `embedded_hal::i2c::I2c`, host-tested with a mock). `crates/s3-bringup` implements the bus on esp-hal and runs the display and touch bring-up on the board. The game itself runs on the S3 through core's `s3` feature (`crates/core/src/s3/`), built by `crates/firmware-s3`. Like `s3-bringup`, that crate is its own workspace on the `esp` toolchain, so the root workspace stays on stable/RISC-V. `docs/board-setup.md` is the first-run checklist for the board.
 
 ## Commands
 
@@ -42,6 +42,8 @@ cargo test -p catode32-amoled216 --target x86_64-unknown-linux-gnu
 
 # ESP32-S3 display bring-up (standalone crate, Xtensa `esp` toolchain from `espup install`)
 cd crates/s3-bringup && . ~/export-esp.sh && cargo build --release   # `cargo run --release` flashes + monitors
+# The game on the ESP32-S3 AMOLED board (same toolchain; --no-default-features --features lang-de etc. for other languages)
+cd crates/firmware-s3 && . ~/export-esp.sh && cargo build --release  # `cargo run --release` flashes + monitors
 
 # Host tests (core crate, desktop feature)
 cargo test -p catode32-core --no-default-features --features desktop,lang-en --target x86_64-unknown-linux-gnu

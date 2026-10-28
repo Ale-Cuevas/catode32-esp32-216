@@ -55,6 +55,16 @@ If the screen shows noise or stays garbled, retry with the slow clock: hold **US
 
 After a change, run the host tests (`cargo test -p catode32-amoled216 --target x86_64-unknown-linux-gnu`) and update the tests that expect the old value. Then reflash and repeat steps 2–4.
 
-## 6. Next
+## 6. Flash the game
 
-Once WP3 and WP4 pass, the next step is WP5 (integrating the S3 into `crates/core`), as described in `PORT_PLAN_S3_AMOLED.md`.
+Once WP3 and WP4 pass (with any fixes from step 5 applied), flash the actual game:
+
+```bash
+. ~/export-esp.sh
+cd crates/firmware-s3
+cargo run --release
+```
+
+Controls: the on-screen D-pad, A, B, M1 and M2. **BOOT** is B (back) and **USER** is Menu1. Work through the WP5 table in [`DEVICE_TESTS.md`](DEVICE_TESTS.md) (steps 15–21) and fill in WP5.1–WP5.7 in [`PENDING_TESTS.md`](PENDING_TESTS.md).
+
+Deep sleep is a stand-in for now: the screen goes dark and BOOT or USER reboots the board. Real deep sleep is WP6 in `PORT_PLAN_S3_AMOLED.md`.

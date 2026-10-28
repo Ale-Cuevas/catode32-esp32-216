@@ -168,7 +168,7 @@ Target a minimal patch to upstream files, since upstream is active and you may w
 Total for a playable MVP: roughly 3-6 working days.
 
 ## 7. Open questions to resolve early
-1. Do all pinned esp-rs crates (`esp-radio =1.0.0-beta.1`, `esp-rtos 0.4.0`, `esp-storage`, `esp-bootloader-esp-idf`) build for `esp32s3` at these versions?
+1. Do all pinned esp-rs crates (`esp-radio =1.0.0-beta.1`, `esp-rtos 0.4.0`, `esp-storage`, `esp-bootloader-esp-idf`) build for `esp32s3` at these versions? **Answer:** yes, `crates/firmware-s3` builds with all of them (compile only; Wi-Fi not yet run on the device, `PENDING_TESTS.md` WP5.6).
 2. Exact Xtensa toolchain flow with esp-hal 1.2.2 (target, `build-std`, linker args).
 3. Is there an existing Rust CO5300 driver worth reusing, or is it written from the vendor demo? **Answer:** written in-house from Arduino_GFX + the demo (`crates/amoled216/src/co5300.rs`); the CST9220 driver likewise from SensorLib (`cst9220.rs`).
 4. Does display power/reset go through the AXP2101 or an I/O expander?

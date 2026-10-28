@@ -17,3 +17,10 @@ One line per check that has only been compiled or host-tested. Steps are in `DEV
 - PENDING: WP4.4 two simultaneous points reported
 - PENDING: WP4.5 on-screen buttons light under the finger, Up+A combo works
 - PENDING: WP4.6 slow drag leaves a continuous trail
+- PENDING: WP5.1 firmware-s3 boots to the pet; display and touch init lines clean
+- PENDING: WP5.2 all on-screen controls work, BOOT = B, USER = Menu1, held direction + A combo works
+- PENDING: WP5.3 soft sleep turns the screen off; touch and BOOT/USER wake it
+- PENDING: WP5.4 save survives RESET
+- PENDING: WP5.5 deep-sleep stand-in: dark until BOOT/USER, then reboots into the game
+- PENDING: WP5.6 Wi-Fi scan works on the S3
+- PENDING: WP5.7 10 min run without reset or panic record

@@ -66,6 +66,9 @@ The demo leaves the rails at their power-on defaults and only sets the charge ta
 ## Port decisions
 - The skill's "single target, replace the old board" rule does **not** apply here. Per CLAUDE.md, C6/C3 stay supported and the S3 becomes another cfg arm (`s3` feature) at the existing seams.
 - There is no addressable RGB LED, so `Led` becomes a no-op on `s3`.
+- BOOT = B (back) and USER = Menu1 (`amoled216::touch::key_mask`), OR-ed with the touch zones.
+- The S3 backend lives in `crates/core/src/s3/` and is built by `crates/firmware-s3` (own workspace, `esp` toolchain). Deep sleep is a stand-in until WP6: panel and touch off, BOOT/USER resets.
+- The shared I2C bus is an `embedded-hal-bus` `CriticalSectionDevice`, so the touch state can sit in a static.
 
 ## Toolchain (verified 2026-10-28 by building `crates/s3-bringup`)
 ```bash
@@ -74,7 +77,7 @@ espup install --targets esp32s3          # adds the "esp" rustup toolchain + ~/e
 . ~/export-esp.sh                         # every new shell (Xtensa GCC on PATH, LIBCLANG_PATH)
 cd crates/s3-bringup && cargo build --release   # or `cargo run --release` to flash + monitor
 ```
-`crates/s3-bringup` is its own workspace with `rust-toolchain.toml` (`channel = "esp"`) and a `.cargo/config.toml`. Together they set the target `xtensa-esp32s3-none-elf`, `build-std = ["core"]`, the link args `-nostartfiles -Wl,-Tlinkall.x`, and the runner `espflash flash --monitor --chip esp32s3 --flash-size 16mb`. The root workspace still uses stable and RISC-V, so the C6/C3 builds are unchanged. The same esp crate versions as the C6 firmware build for `esp32s3`: esp-hal 1.2.2 (with `unstable`, needed for half-duplex quad SPI), esp-println 0.18, esp-backtrace 0.20 and esp-bootloader-esp-idf 0.6. esp-radio, esp-rtos and esp-storage have not been tried on the S3 yet (port plan, open question 1).
+`crates/s3-bringup` is its own workspace with `rust-toolchain.toml` (`channel = "esp"`) and a `.cargo/config.toml`. Together they set the target `xtensa-esp32s3-none-elf`, `build-std = ["core"]`, the link args `-nostartfiles -Wl,-Tlinkall.x`, and the runner `espflash flash --monitor --chip esp32s3 --flash-size 16mb`. The root workspace still uses stable and RISC-V, so the C6/C3 builds are unchanged. The same esp crate versions as the C6 firmware build for `esp32s3`: esp-hal 1.2.2 (with `unstable`, needed for half-duplex quad SPI), esp-println 0.18, esp-backtrace 0.20 and esp-bootloader-esp-idf 0.6. `crates/firmware-s3` also builds esp-radio =1.0.0-beta.1, esp-rtos 0.4.0 and esp-storage 0.10.0 for `esp32s3` (port plan, open question 1), with `build-std = ["core", "alloc"]` for the Wi-Fi heap. espflash's default partition table has `nvs` at 0x9000 (24 KiB), which the save code uses.
 
 ## Still unverified on the device
 Touch swap/mirror flags, number of touch points, INT behavior while a finger is held, RGB565 byte order, PWR-sense polarity on GPIO16, IMU axis orientation, and whether the RTC keeps time through a full power-off.
