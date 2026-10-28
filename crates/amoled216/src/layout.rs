@@ -103,6 +103,10 @@ pub const CONTROLS: [Control; 4] = [
     Control { button: button::MENU2, hit: Rect::new(370, 418, 80, 60), draw: Rect::new(380, 432, 60, 32) },
 ];
 
+/// Full-width band holding every control. The firmware redraws only this
+/// band when the pressed mask changes; the rest of the screen stays black.
+pub const CONTROLS_AREA: Rect = Rect::new(0, 240, SCREEN_W, SCREEN_H - 240);
+
 // --- compile-time checks -------------------------------------------------
 
 /// Minimum hit-zone edge, about 7 mm on this panel.
@@ -120,6 +124,10 @@ const _: () = {
     assert!(DPAD_HIT.contains_rect(&DPAD_DRAW));
     assert!(DPAD_HIT.w == DPAD_HIT.h, "D-pad sectors assume a square zone");
     assert!(!DPAD_HIT.intersects(&VIEWPORT));
+    assert!(DPAD_DRAW.w == DPAD_DRAW.h && DPAD_DRAW.w.is_multiple_of(3), "D-pad cross needs 3 equal arms");
+    check_rect(&CONTROLS_AREA);
+    assert!(!CONTROLS_AREA.intersects(&VIEWPORT));
+    assert!(CONTROLS_AREA.contains_rect(&DPAD_HIT));
 
     let mut i = 0;
     while i < CONTROLS.len() {
@@ -130,6 +138,7 @@ const _: () = {
         assert!(c.hit.w >= MIN_HIT && c.hit.h >= MIN_HIT, "hit zone too small");
         assert!(!c.hit.intersects(&VIEWPORT));
         assert!(!c.hit.intersects(&DPAD_HIT));
+        assert!(CONTROLS_AREA.contains_rect(&c.hit));
         let mut j = i + 1;
         while j < CONTROLS.len() {
             assert!(!c.hit.intersects(&CONTROLS[j].hit), "control hit zones overlap");

@@ -62,15 +62,14 @@ The demo leaves the rails at their power-on defaults and only sets the charge ta
 - The skill's "single target, replace the old board" rule does **not** apply here. Per CLAUDE.md, C6/C3 stay supported and the S3 becomes another cfg arm (`s3` feature) at the existing seams.
 - There is no addressable RGB LED, so `Led` becomes a no-op on `s3`.
 
-## Toolchain (not installed yet; stage 2)
+## Toolchain (verified 2026-10-28 by building `crates/s3-hello`)
 ```bash
-cargo install espup espflash
-espup install            # Xtensa Rust toolchain ("esp") + export-esp.sh
-. ~/export-esp.sh
-# S3 builds use the esp toolchain explicitly; rust-toolchain.toml stays on stable for C6/C3:
-cargo +esp build --release --target xtensa-esp32s3-none-elf -Zbuild-std=core,alloc ...
+cargo install espup espflash --locked   # espflash 4.6.0
+espup install --targets esp32s3          # adds the "esp" rustup toolchain + ~/export-esp.sh
+. ~/export-esp.sh                         # every new shell (Xtensa GCC on PATH, LIBCLANG_PATH)
+cd crates/s3-hello && cargo build --release   # or `cargo run --release` to flash + monitor
 ```
-The exact flags for esp-hal 1.2.2 still need confirming. Flash with `espflash flash --flash-size 16mb`.
+`crates/s3-hello` is its own workspace with `rust-toolchain.toml` (`channel = "esp"`) and a `.cargo/config.toml`. Together they set the target `xtensa-esp32s3-none-elf`, `build-std = ["core"]`, the link args `-nostartfiles -Wl,-Tlinkall.x`, and the runner `espflash flash --monitor --chip esp32s3 --flash-size 16mb`. The root workspace still uses stable and RISC-V, so the C6/C3 builds are unchanged. The same esp crate versions as the C6 firmware build for `esp32s3`: esp-hal 1.2.2, esp-println 0.18, esp-backtrace 0.20 and esp-bootloader-esp-idf 0.6. esp-radio, esp-rtos and esp-storage have not been tried on the S3 yet (port plan, open question 1).
 
 ## Still unverified on the device
 Touch swap/mirror flags, number of touch points, RGB565 byte order, PWR-sense polarity on GPIO16, IMU axis orientation, and whether the RTC keeps time through a full power-off.

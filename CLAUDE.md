@@ -34,6 +34,14 @@ cargo run --release --no-default-features --features c6,lang-de
 # Desktop simulator (SDL2 window; uses the same core crate)
 cargo run -p catode32-desktop --target x86_64-unknown-linux-gnu
 cargo run -p catode32-desktop --target x86_64-unknown-linux-gnu -- --fg FFAA00 --bg 000000
+# 480x480 AMOLED port preview: mouse clicks act as touch on the on-screen controls
+cargo run -p catode32-desktop --target x86_64-unknown-linux-gnu -- --amoled
+
+# AMOLED layout/scaler/touch crate tests (host)
+cargo test -p catode32-amoled216 --target x86_64-unknown-linux-gnu
+
+# ESP32-S3 hello-world (standalone crate, Xtensa `esp` toolchain from `espup install`)
+cd crates/s3-hello && . ~/export-esp.sh && cargo build --release   # `cargo run --release` flashes + monitors
 
 # Host tests (core crate, desktop feature)
 cargo test -p catode32-core --no-default-features --features desktop,lang-en --target x86_64-unknown-linux-gnu

@@ -17,6 +17,7 @@ lang-nl = ["catode32-core/lang-nl"]
 
 [dependencies]
 catode32-core = { path = "../core", default-features = false, features = ["desktop"] }
+catode32-amoled216 = { path = "../amoled216" }
 embedded-graphics = "0.8.2"
 embedded-graphics-simulator = "0.7.0"
 

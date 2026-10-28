@@ -1,0 +1,14 @@
+[build]
+target = "xtensa-esp32s3-none-elf"
+
+[target.xtensa-esp32s3-none-elf]
+runner = "espflash flash --monitor --chip esp32s3 --flash-size 16mb"
+rustflags = [
+  "-C", "link-arg=-nostartfiles",
+  "-C", "link-arg=-Wl,-Tlinkall.x",
+  # esp-hal's linker script maps IRAM as RWX on purpose.
+  "-C", "link-arg=-Wl,--no-warn-rwx-segments",
+]
+
+[unstable]
+build-std = ["core"]

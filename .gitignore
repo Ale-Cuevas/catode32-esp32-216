@@ -19,3 +19,6 @@ parse_stats.py
 backup.json
 backup.old.json
 *save.json
+
+# Standalone S3 crates have their own target dir
+crates/*/target/

@@ -148,6 +148,7 @@ dependencies = [
 name = "catode32-desktop"
 version = "0.13.0"
 dependencies = [
+ "catode32-amoled216",
  "catode32-core",
  "embedded-graphics",
  "embedded-graphics-simulator",

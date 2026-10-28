@@ -9,6 +9,10 @@
 //! exists. A throwaway save is written first in a temp working directory,
 //! so a real `catode32-save.json` is never touched.
 //!
+//! It also writes `amoled.png`: one full 480x480 frame of the
+//! ESP32-S3-Touch-AMOLED-2.16 port (scaled game plus touch controls),
+//! composed by `catode32-amoled216` exactly as `--amoled` shows it.
+//!
 //! Usage (from the workspace root):
 //!
 //!     cargo run -p catode32-desktop --example screenshots \
@@ -20,6 +24,7 @@ use std::path::{Path, PathBuf};
 use std::thread;
 use std::time::Duration;
 
+use catode32_amoled216 as amoled;
 use catode32_core::{
     context::GameContext,
     espnow_manager::EspNowManager,
@@ -97,11 +102,58 @@ fn main() {
     for shot in SHOTS {
         capture(&out, shot);
     }
+    capture_amoled(&out, &Shot { file: "amoled.png", scene: Some(SceneId::Inside), warmup: 36, taps: &[] });
 
     let _ = fs::remove_dir_all(&tmp);
 }
 
 fn capture(out: &Path, shot: &Shot) {
+    let bits = shoot(shot);
+    let path = out.join(shot.file);
+    fs::write(&path, encode_png(&bits)).expect("write png");
+    println!("wrote {}", path.display());
+}
+
+/// Same as `capture`, but composed onto the 480x480 AMOLED screen.
+fn capture_amoled(out: &Path, shot: &Shot) {
+    let bits = shoot(shot);
+    let mut src = [0u8; amoled::scale::SRC_BYTES];
+    for (y, row) in bits.iter().enumerate() {
+        for (x, &lit) in row.iter().enumerate() {
+            if lit {
+                src[y * WIDTH / 8 + x / 8] |= 0x80 >> (x % 8);
+            }
+        }
+    }
+    let mut screen = vec![0u8; amoled::SCREEN_BYTES];
+    amoled::compose_screen(&src, 0, amoled::scale::Palette::DEFAULT, false, &mut screen);
+
+    let side = amoled::layout::SCREEN_W as usize;
+    let mut raw = Vec::with_capacity(side * (side * 3 + 1));
+    for row in screen.chunks_exact(side * 2) {
+        raw.push(0); // filter: none
+        for &[hi, lo] in row.as_chunks::<2>().0 {
+            let c = u16::from_be_bytes([hi, lo]);
+            let (r, g, b) = ((c >> 11) as u8, ((c >> 5) & 0x3F) as u8, (c & 0x1F) as u8);
+            raw.extend_from_slice(&[(r << 3) | (r >> 2), (g << 2) | (g >> 4), (b << 3) | (b >> 2)]);
+        }
+    }
+    let mut png = vec![0x89, b'P', b'N', b'G', 0x0D, 0x0A, 0x1A, 0x0A];
+    let mut ihdr = Vec::new();
+    ihdr.extend_from_slice(&(side as u32).to_be_bytes());
+    ihdr.extend_from_slice(&(side as u32).to_be_bytes());
+    ihdr.extend_from_slice(&[8, 2, 0, 0, 0]); // 8-bit RGB
+    chunk(&mut png, b"IHDR", &ihdr);
+    chunk(&mut png, b"IDAT", &zlib_stored(&raw));
+    chunk(&mut png, b"IEND", &[]);
+
+    let path = out.join(shot.file);
+    fs::write(&path, png).expect("write png");
+    println!("wrote {}", path.display());
+}
+
+/// Boot into the shot's scene, run it, and return the 128x64 frame.
+fn shoot(shot: &Shot) -> [[bool; WIDTH]; HEIGHT] {
     match shot.scene {
         Some(id) => persist::intent_set(id.to_u8()),
         None => persist::intent_clear(),
@@ -122,9 +174,7 @@ fn capture(out: &Path, shot: &Shot) {
             *px = fb.pixel(x, y);
         }
     }
-    let path = out.join(shot.file);
-    fs::write(&path, encode_png(&bits)).expect("write png");
-    println!("wrote {}", path.display());
+    bits
 }
 
 fn new_game() -> Game {

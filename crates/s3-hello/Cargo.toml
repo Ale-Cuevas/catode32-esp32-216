@@ -1,0 +1,25 @@
+# Toolchain smoke test for the ESP32-S3-Touch-AMOLED-2.16 port (stage 2).
+# Standalone on purpose: own workspace, `esp` (Xtensa) toolchain and cargo
+# config, so the C6/C3 firmware and the desktop sim are unaffected.
+# Build/flash from this directory: `cargo run --release`.
+[package]
+name = "catode32-s3-hello"
+version = "0.13.0"
+edition = "2021"
+description = "ESP32-S3 hello-world: proves the Xtensa toolchain, flashing and USB logs"
+license = "MIT"
+publish = false
+
+[workspace]
+
+[dependencies]
+esp-hal = { version = "1.2.2", default-features = false, features = ["esp32s3", "rt"] }
+esp-backtrace = { version = "0.20.0", default-features = false, features = ["esp32s3", "panic-handler", "println"] }
+esp-println = { version = "0.18.0", default-features = false, features = ["esp32s3", "auto"] }
+esp-bootloader-esp-idf = { version = "0.6.0", default-features = false, features = ["esp32s3"] }
+
+[profile.release]
+codegen-units = 1
+debug = 2
+lto = "fat"
+opt-level = "s"
