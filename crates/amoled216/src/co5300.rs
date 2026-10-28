@@ -137,6 +137,12 @@ impl<B: QspiBus, RST: OutputPin> Co5300<B, RST> {
         self.command(cmd::BRIGHTNESS, &[level])
     }
 
+    /// Memory access control (scan direction / RGB order). `init` sets
+    /// `MADCTL_BOARD`; bring-up uses this to try other values.
+    pub fn set_madctl(&mut self, value: u8) -> Result<(), Error<B::Error, RST::Error>> {
+        self.command(cmd::MADCTL, &[value])
+    }
+
     /// Same sequences as Arduino_GFX `displayOn` / `displayOff`; each takes
     /// about 240 ms.
     pub fn set_display_on(
@@ -370,12 +376,14 @@ mod tests {
     fn brightness_and_power() {
         let (mut lcd, mut delay, log) = lcd();
         lcd.set_brightness(0x40).unwrap();
+        lcd.set_madctl(0x60).unwrap();
         lcd.set_display_on(false, &mut delay).unwrap();
         lcd.set_display_on(true, &mut delay).unwrap();
         assert_eq!(
             *log.borrow(),
             vec![
                 reg(0x51, &[0x40]),
+                reg(0x36, &[0x60]),
                 reg(0x28, &[]),
                 Txn::DelayMs(120),
                 reg(0x10, &[]),

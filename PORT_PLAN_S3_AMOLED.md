@@ -170,9 +170,9 @@ Total for a playable MVP: roughly 3-6 working days.
 ## 7. Open questions to resolve early
 1. Do all pinned esp-rs crates (`esp-radio =1.0.0-beta.1`, `esp-rtos 0.4.0`, `esp-storage`, `esp-bootloader-esp-idf`) build for `esp32s3` at these versions?
 2. Exact Xtensa toolchain flow with esp-hal 1.2.2 (target, `build-std`, linker args).
-3. Is there an existing Rust CO5300 driver worth reusing, or is it written from the vendor demo?
+3. Is there an existing Rust CO5300 driver worth reusing, or is it written from the vendor demo? **Answer:** written in-house from Arduino_GFX + the demo (`crates/amoled216/src/co5300.rs`); the CST9220 driver likewise from SensorLib (`cst9220.rs`).
 4. Does display power/reset go through the AXP2101 or an I/O expander?
-5. How many simultaneous touch points does the CST9220 report?
+5. How many simultaneous touch points does the CST9220 report? **Library answer:** 2 (SensorLib `CST92XX_MAX_FINGER_NUM`); confirm on the device (`PENDING_TESTS.md` WP4.4).
 
 ## 8. Licensing
 - Code is MIT. **Artwork is CC BY-NC-ND 4.0** (no derivatives), and the "Catode32" name is trademarked. Personal and educational builds are allowed per the README; commercial use is not.

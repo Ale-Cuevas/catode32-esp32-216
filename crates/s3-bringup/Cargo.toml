@@ -1,12 +1,12 @@
-# Display bring-up for the ESP32-S3-Touch-AMOLED-2.16 port (WP3): runs the
-# CO5300 driver from catode32-amoled216 on the real panel. Standalone on purpose: own workspace, `esp` (Xtensa) toolchain and cargo
+# Display + touch bring-up for the ESP32-S3-Touch-AMOLED-2.16 port (WP3/WP4): runs the
+# CO5300 and CST9220 drivers from catode32-amoled216 on the real panel. Standalone on purpose: own workspace, `esp` (Xtensa) toolchain and cargo
 # config, so the C6/C3 firmware and the desktop sim are unaffected.
 # Build/flash from this directory: `cargo run --release`.
 [package]
 name = "catode32-s3-bringup"
 version = "0.13.0"
 edition = "2021"
-description = "ESP32-S3 AMOLED display bring-up: init, color/orientation tests, flush timing"
+description = "ESP32-S3 AMOLED bring-up: display init, color/orientation tests, flush timing, touch"
 license = "MIT"
 publish = false
 
@@ -15,6 +15,7 @@ publish = false
 [dependencies]
 catode32-amoled216 = { path = "../amoled216" }
 embedded-hal = "1.0"
+embedded-hal-bus = "0.3"
 esp-hal = { version = "1.2.2", default-features = false, features = ["esp32s3", "rt", "unstable"] }
 esp-backtrace = { version = "0.20.0", default-features = false, features = ["esp32s3", "panic-handler", "println"] }
 esp-println = { version = "0.18.0", default-features = false, features = ["esp32s3", "auto"] }

@@ -17,7 +17,7 @@ For anything the skill doesn't cover, check these board resources (Arduino/ESP-I
 - Waveshare demo repo (examples, pin config, schematic, CO5300 init): <https://github.com/waveshareteam/ESP32-S3-Touch-AMOLED-2.16/tree/main>
 - Spotpear wiki (specs, pinout, setup guides): <https://spotpear.com/wiki/ESP32-S3-2.16-inch-AMOLED-Display-Capacitive-TouchScreen.html>
 
-`docs/board-notes.md` summarizes the pins and display/touch facts the Rust port relies on. Checks that need the board go in `docs/DEVICE_TESTS.md` (steps) and `docs/PENDING_TESTS.md` (one line each, with results). `crates/amoled216` holds the hardware-free 480x480 layout, the 1bpp→RGB565 scaler, the touch hit-testing and the CO5300 driver (written against a `QspiBus` trait, host-tested with a mock bus). `crates/s3-bringup` implements that bus on esp-hal and runs the display bring-up on the board.
+`docs/board-notes.md` summarizes the pins and display/touch facts the Rust port relies on. Checks that need the board go in `docs/DEVICE_TESTS.md` (steps) and `docs/PENDING_TESTS.md` (one line each, with results). `crates/amoled216` holds the hardware-free 480x480 layout, the 1bpp→RGB565 scaler, the touch hit-testing and `TouchTracker`, the CO5300 driver (written against a `QspiBus` trait, host-tested with a mock bus) and the CST9220 touch driver (written against `embedded_hal::i2c::I2c`, host-tested with a mock). `crates/s3-bringup` implements the bus on esp-hal and runs the display and touch bring-up on the board.
 
 ## Commands
 

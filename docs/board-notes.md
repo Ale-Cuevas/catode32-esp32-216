@@ -50,8 +50,10 @@ There is **no I/O expander**. Display reset, touch reset and SD CS are plain GPI
 ## Touch (CST9220)
 - I2C 0x5A, INT 11, RST 40. Max coordinates 480x480.
 - For MADCTL 0xA0 the demo uses: swap X/Y = true, mirror X = true, mirror Y = false. Not yet confirmed on the device.
-- Use INT to detect a touch start, then poll (~25 ms) until release. Reading only on INT is not proven to report drags or releases.
-- The number of simultaneous touch points is still unknown (port plan, open question 5).
+- Use INT to detect a touch start, then poll (~25 ms) until release. Reading only on INT is not proven to report drags or releases. SensorLib notes that INT pulses rather than staying low while a finger is down; `s3-bringup` logs the INT low time to confirm this.
+- Up to **2** simultaneous points (SensorLib `CST92XX_MAX_FINGER_NUM`). Not yet seen on the device.
+- Protocol (SensorLib 0.3.3 `TouchDrvCST92xx`, implemented in `crates/amoled216/src/cst9220.rs`): 16-bit big-endian registers, little-endian values. Probe = reset (RST low 10 ms, high, wait 30 ms), write `D101`, read `D1FC` (checkcode `0xCACAxxxx`), `D1F8` (resolution), `D204` (chip type `0x9220`/`0x9217`), `D208` (firmware; `0xA5A5A5A5` = none). Points = write `D000`, read 15 bytes, always write `D000 AB`; valid when byte 6 is `0xAB`, count in byte 5, finger records at bytes 0 and 7. Sleep = write `D105`, wake = reset. SensorLib does not write a normal-mode command after the probe, so neither do we.
+- SensorLib mirrors as `480 - v`, which gives 1..480; `Orientation::map` clamps to 0..479.
 
 ## Buttons
 - BOOT (GPIO0) and USER (GPIO18) have external 10K pull-ups and read **LOW when pressed**. Both are RTC GPIOs, so both can wake from deep sleep. That gives two physical keys, not just BOOT as the port plan assumed.
@@ -75,4 +77,4 @@ cd crates/s3-bringup && cargo build --release   # or `cargo run --release` to fl
 `crates/s3-bringup` is its own workspace with `rust-toolchain.toml` (`channel = "esp"`) and a `.cargo/config.toml`. Together they set the target `xtensa-esp32s3-none-elf`, `build-std = ["core"]`, the link args `-nostartfiles -Wl,-Tlinkall.x`, and the runner `espflash flash --monitor --chip esp32s3 --flash-size 16mb`. The root workspace still uses stable and RISC-V, so the C6/C3 builds are unchanged. The same esp crate versions as the C6 firmware build for `esp32s3`: esp-hal 1.2.2 (with `unstable`, needed for half-duplex quad SPI), esp-println 0.18, esp-backtrace 0.20 and esp-bootloader-esp-idf 0.6. esp-radio, esp-rtos and esp-storage have not been tried on the S3 yet (port plan, open question 1).
 
 ## Still unverified on the device
-Touch swap/mirror flags, number of touch points, RGB565 byte order, PWR-sense polarity on GPIO16, IMU axis orientation, and whether the RTC keeps time through a full power-off.
+Touch swap/mirror flags, number of touch points, INT behavior while a finger is held, RGB565 byte order, PWR-sense polarity on GPIO16, IMU axis orientation, and whether the RTC keeps time through a full power-off.

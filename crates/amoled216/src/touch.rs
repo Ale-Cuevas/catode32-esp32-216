@@ -48,6 +48,61 @@ fn dpad_direction(zone: &Rect, x: u16, y: u16) -> u8 {
     }
 }
 
+/// Empty reads in a row before a touch counts as released. One dropped read
+/// mid-hold must not let go of a held direction.
+pub const RELEASE_READS: u8 = 2;
+
+/// The "INT edge starts a touch, then poll until release" pattern, without
+/// the I/O. The controller's INT only pulses, so it can't tell whether a
+/// finger is still down; the tracker keeps polling until the reads come
+/// back empty.
+///
+/// Per frame: call `on_int_edge` if INT fell since the last frame, then, if
+/// `should_poll`, read the points and pass them to `update` (an empty slice
+/// for no points or a failed read).
+#[derive(Debug, Default)]
+pub struct TouchTracker {
+    active: bool,
+    empty_reads: u8,
+    mask: u8,
+}
+
+impl TouchTracker {
+    pub const fn new() -> Self {
+        Self { active: false, empty_reads: 0, mask: 0 }
+    }
+
+    pub fn on_int_edge(&mut self) {
+        self.active = true;
+        self.empty_reads = 0;
+    }
+
+    pub fn should_poll(&self) -> bool {
+        self.active
+    }
+
+    /// Feed one read (panel coordinates) and get the button mask. An empty
+    /// read keeps the last mask until `RELEASE_READS` of them in a row.
+    pub fn update(&mut self, points: &[(u16, u16)]) -> u8 {
+        if points.is_empty() {
+            self.empty_reads = self.empty_reads.saturating_add(1);
+            if self.empty_reads >= RELEASE_READS {
+                self.active = false;
+                self.mask = 0;
+            }
+        } else {
+            self.empty_reads = 0;
+            self.mask = hit_test(points);
+        }
+        self.mask
+    }
+
+    /// Current mask without a new read.
+    pub fn mask(&self) -> u8 {
+        self.mask
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -121,5 +176,67 @@ mod tests {
         assert_eq!(hit_test(&[a, b]), bit(A) | bit(B));
         assert_eq!(hit_test(&[]), 0);
         assert_eq!(hit_test(&[(cx, cy)]), 0);
+    }
+
+    fn center_of(b: u8) -> (u16, u16) {
+        CONTROLS.iter().find(|c| c.button == b).unwrap().hit.center()
+    }
+
+    #[test]
+    fn tracker_idle_until_int() {
+        let mut t = TouchTracker::new();
+        assert!(!t.should_poll());
+        assert_eq!(t.mask(), 0);
+        t.on_int_edge();
+        assert!(t.should_poll());
+    }
+
+    #[test]
+    fn tracker_holds_through_one_dropped_read_then_releases() {
+        let mut t = TouchTracker::new();
+        t.on_int_edge();
+        assert_eq!(t.update(&[center_of(A)]), bit(A));
+        assert_eq!(t.update(&[]), bit(A)); // one empty read: still held
+        assert!(t.should_poll());
+        assert_eq!(t.update(&[center_of(A)]), bit(A)); // empties reset
+        assert_eq!(t.update(&[]), bit(A));
+        assert_eq!(t.update(&[]), 0); // second empty in a row: released
+        assert!(!t.should_poll());
+    }
+
+    #[test]
+    fn tracker_rearms_on_next_int() {
+        let mut t = TouchTracker::new();
+        t.on_int_edge();
+        t.update(&[]);
+        t.update(&[]);
+        assert!(!t.should_poll());
+        t.on_int_edge();
+        assert!(t.should_poll());
+        assert_eq!(t.update(&[center_of(B)]), bit(B));
+    }
+
+    #[test]
+    fn raw_report_to_button_mask() {
+        use crate::cst9220::{mock, BOARD_ORIENTATION};
+        // Raw coords whose board mapping lands on D-pad up and on A. The
+        // mapping swaps then mirrors x: panel (px, py) <- raw (py, 480 - px).
+        let (cx, cy) = DPAD_HIT.center();
+        let up = (cx, cy - 60);
+        let a = center_of(A);
+        let raw = |(px, py): (u16, u16)| (py, 480 - px);
+        let reply = mock::report(
+            &[mock::finger(0, 6, raw(up).0, raw(up).1), mock::finger(1, 6, raw(a).0, raw(a).1)],
+            0xAB,
+        );
+        let (mut touch, _, _) = mock::touch(vec![Some(reply)]);
+        let mut pts = [(0, 0); 2];
+        let n = touch.read_points(&mut pts).unwrap();
+        let mapped: Vec<_> = pts[..n].iter().map(|&p| BOARD_ORIENTATION.map(p)).collect();
+        assert_eq!(mapped, vec![up, a]);
+
+        let mut t = TouchTracker::new();
+        t.on_int_edge();
+        assert_eq!(t.update(&mapped), bit(UP) | bit(A));
     }
 }
