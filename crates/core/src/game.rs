@@ -424,7 +424,7 @@ impl Game {
     ///   A/B are GPIO4/5, and Menu1/Menu2 (GPIO10/11) can't wake it at all.
     ///   Wake set probably becomes A/B only, chosen per board.
     /// * Once the C3 build compiles, re-check it for warnings.
-    #[cfg(not(feature = "desktop"))]
+    #[cfg(all(not(feature = "desktop"), not(feature = "s3")))]
     fn enter_deep_sleep(&mut self) -> ! {
         use esp_hal::{
             gpio::{Event, Input, InputConfig, Pull, WakeupConfig},
@@ -471,6 +471,29 @@ impl Game {
 
         watchdog::stop();
         LowPower::new(unsafe { LPWR::steal() }).sleep_deep(RtcSleepConfig::deep());
+    }
+
+    /// S3 stand-in until real deep sleep (port plan WP6): panel and touch
+    /// off, wait for BOOT or USER, then reset. Waking from deep sleep resets
+    /// too, so the game sees the same thing; only the power saving is
+    /// missing.
+    #[cfg(feature = "s3")]
+    fn enter_deep_sleep(&mut self) -> ! {
+        use crate::{input::Button, sleep_manager::wait_buttons_stable_released_mask};
+
+        // BOOT and USER (`amoled216::touch::key_mask`).
+        const WAKE_BUTTONS: [Button; 2] = [Button::B, Button::Menu1];
+
+        println!("[Power] Deep sleep (S3 stand-in: panel off, BOOT/USER resets)");
+        self.renderer.clear();
+        self.renderer.flush();
+        self.renderer.power_off();
+        wait_buttons_stable_released_mask(&self.buttons, &WAKE_BUTTONS, Duration::from_millis(500));
+        crate::s3::input::sleep_touch();
+        while !WAKE_BUTTONS.iter().any(|&b| self.buttons.is_pressed(b)) {
+            watchdog::feed();
+        }
+        software_reset()
     }
 
     #[cfg(feature = "desktop")]

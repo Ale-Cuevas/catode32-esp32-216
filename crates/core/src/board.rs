@@ -11,7 +11,20 @@ pub const DISPLAY_WIDTH: u16 = 128;
 pub const DISPLAY_HEIGHT: u16 = 64;
 pub const I2C_FREQ_KHZ: u32 = 400;
 
-#[cfg(not(feature = "desktop"))]
+#[cfg(all(
+    not(feature = "desktop"),
+    any(
+        all(feature = "c6", feature = "c3"),
+        all(feature = "c6", feature = "s3"),
+        all(feature = "c3", feature = "s3")
+    )
+))]
+compile_error!("Features `c6`, `c3` and `s3` are mutually exclusive, enable exactly one.");
+
+#[cfg(not(any(feature = "desktop", feature = "c6", feature = "c3", feature = "s3")))]
+compile_error!("Enable feature `c6`, `c3` or `s3` to select the target board.");
+
+#[cfg(all(not(feature = "desktop"), not(feature = "s3")))]
 mod firmware {
     use esp_hal::{
         gpio::{Input, InputConfig, Pull},
@@ -24,12 +37,6 @@ mod firmware {
 
     use super::I2C_FREQ_KHZ;
     use crate::{input::Buttons, led::Led};
-
-    #[cfg(all(feature = "c6", feature = "c3"))]
-    compile_error!("Features `c6` and `c3` are mutually exclusive, enable exactly one.");
-
-    #[cfg(not(any(feature = "c6", feature = "c3")))]
-    compile_error!("Enable either feature `c6` or `c3` to select the target board.");
 
     pub struct Board {
         pub i2c: I2c<'static, Blocking>,
@@ -96,5 +103,8 @@ mod firmware {
     }
 }
 
-#[cfg(not(feature = "desktop"))]
+#[cfg(all(not(feature = "desktop"), not(feature = "s3")))]
 pub use firmware::{init, Board};
+
+#[cfg(feature = "s3")]
+pub use crate::s3::board::{init, Board};

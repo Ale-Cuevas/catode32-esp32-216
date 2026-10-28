@@ -1,0 +1,3 @@
+[toolchain]
+# Xtensa Rust from `espup install`; the rest of the repo stays on stable.
+channel = "esp"

@@ -46,6 +46,8 @@ pub mod plant_system;
 pub mod radio;
 pub mod rand;
 pub mod render;
+#[cfg(feature = "s3")]
+pub mod s3;
 pub mod save;
 pub mod scene;
 pub mod scenes;

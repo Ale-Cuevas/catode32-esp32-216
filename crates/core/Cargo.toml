@@ -41,6 +41,30 @@ c3 = [
     "esp-radio/esp32c3",
     "esp-rtos/esp32c3",
 ]
+# Waveshare ESP32-S3-Touch-AMOLED-2.16: CO5300 AMOLED over QSPI, CST9220
+# touch, no LED. Built from `crates/firmware-s3` with the `esp` toolchain.
+s3 = [
+    "dep:esp-hal",
+    "dep:esp-println",
+    "dep:esp-bootloader-esp-idf",
+    "dep:esp-storage",
+    "dep:esp-radio",
+    "dep:esp-rtos",
+    "dep:embassy-futures",
+    "dep:catode32-amoled216",
+    "dep:embedded-hal",
+    "dep:embedded-hal-bus",
+    "dep:static_cell",
+    "dep:critical-section",
+    "esp-hal/esp32s3",
+    # Half-duplex quad SPI, DMA and GPIO interrupts are unstable in esp-hal 1.x.
+    "esp-hal/unstable",
+    "esp-println/esp32s3",
+    "esp-bootloader-esp-idf/esp32s3",
+    "esp-storage/esp32s3",
+    "esp-radio/esp32s3",
+    "esp-rtos/esp32s3",
+]
 # Host-side build: skips esp-* deps, swaps platform modules for std-backed shims.
 desktop = []
 
@@ -61,6 +85,11 @@ esp-hal-smartled = { version = "0.18.0", default-features = false, optional = tr
 esp-radio = { version = "=1.0.0-beta.1", default-features = false, features = ["wifi", "esp-now", "esp-alloc", "unstable"], optional = true }
 esp-rtos = { version = "0.4.0", default-features = false, features = ["esp-radio", "esp-alloc"], optional = true }
 embassy-futures = { version = "0.1", optional = true }
+catode32-amoled216 = { path = "../amoled216", optional = true }
+embedded-hal = { version = "1.0", optional = true }
+embedded-hal-bus = { version = "0.3", optional = true }
+static_cell = { version = "2.1", optional = true }
+critical-section = { version = "1.2", optional = true }
 
 ssd1306 = "0.10.0"
 embedded-graphics = "0.8.2"

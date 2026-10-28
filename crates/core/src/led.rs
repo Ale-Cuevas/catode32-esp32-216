@@ -2,10 +2,10 @@
 //! peripheral via `esp-hal-smartled`; writes are blocking and take well
 //! under a frame at 12 FPS.
 //!
-//! Desktop builds get a no-op `Led` so the existing `ctx.led.set(...)` /
-//! `ctx.led.off()` call sites compile unchanged.
+//! Desktop and S3 builds (the S3 board has no LED) get a no-op `Led` so the
+//! existing `ctx.led.set(...)` / `ctx.led.off()` call sites compile unchanged.
 
-#[cfg(not(feature = "desktop"))]
+#[cfg(all(not(feature = "desktop"), not(feature = "s3")))]
 mod firmware {
     use esp_hal::{
         peripherals::{GPIO8, RMT},
@@ -42,10 +42,10 @@ mod firmware {
     }
 }
 
-#[cfg(not(feature = "desktop"))]
+#[cfg(all(not(feature = "desktop"), not(feature = "s3")))]
 pub use firmware::Led;
 
-#[cfg(feature = "desktop")]
+#[cfg(any(feature = "desktop", feature = "s3"))]
 mod desktop {
     pub struct Led;
 
@@ -66,5 +66,5 @@ mod desktop {
     }
 }
 
-#[cfg(feature = "desktop")]
+#[cfg(any(feature = "desktop", feature = "s3"))]
 pub use desktop::Led;

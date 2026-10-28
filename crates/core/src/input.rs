@@ -49,8 +49,12 @@ impl Button {
 
 const DEBOUNCE: Duration = Duration::from_millis(50);
 
-#[cfg(not(feature = "desktop"))]
+#[cfg(all(not(feature = "desktop"), not(feature = "s3")))]
 pub type ButtonPin = esp_hal::gpio::Input<'static>;
+
+/// S3: touch zones and BOOT/USER behind the same `is_low()` interface.
+#[cfg(feature = "s3")]
+pub use crate::s3::input::ButtonPin;
 
 #[cfg(feature = "desktop")]
 mod desktop_pin {

@@ -1,0 +1,49 @@
+# Catode32 firmware for the Waveshare ESP32-S3-Touch-AMOLED-2.16 (port plan
+# WP5). Standalone on purpose: own workspace, `esp` (Xtensa) toolchain and
+# cargo config, so the C6/C3 firmware and the desktop sim are unaffected.
+# Build/flash from this directory: `cargo run --release`.
+[package]
+name = "catode32-firmware-s3"
+version = "0.13.0"
+edition = "2021"
+description = "ESP32-S3-Touch-AMOLED-2.16 firmware binary for catode32"
+license = "MIT"
+repository = "https://github.com/moonbench/catode32"
+publish = false
+
+[workspace]
+
+[features]
+default = ["lang-en"]
+# Language selection, passed through to core. Exactly one should be active.
+lang-en = ["catode32-core/lang-en"]
+lang-de = ["catode32-core/lang-de"]
+lang-es = ["catode32-core/lang-es"]
+lang-fr = ["catode32-core/lang-fr"]
+lang-it = ["catode32-core/lang-it"]
+lang-nl = ["catode32-core/lang-nl"]
+
+[dependencies]
+catode32-core = { path = "../core", default-features = false, features = ["s3"] }
+esp-hal = { version = "1.2.2", default-features = false, features = ["esp32s3", "rt", "unstable"] }
+# Backtrace capture only; the panic handler is `crates/firmware/src/panic.rs`.
+esp-backtrace = { version = "0.20.0", default-features = false, features = ["esp32s3", "println"] }
+esp-println = { version = "0.18.0", default-features = false, features = ["esp32s3", "auto"] }
+esp-bootloader-esp-idf = { version = "0.6.0", default-features = false, features = ["esp32s3"] }
+esp-alloc = "0.11.0"
+esp-rtos = { version = "0.4.0", default-features = false, features = ["esp32s3", "esp-radio", "esp-alloc"] }
+
+[profile.dev]
+opt-level = 1
+
+[profile.dev.package.esp-radio]
+opt-level = 3
+
+[profile.release]
+codegen-units = 1
+debug = 2
+debug-assertions = false
+incremental = false
+lto = "fat"
+opt-level = "s"
+overflow-checks = false

@@ -6,21 +6,24 @@ use embedded_graphics::{
     text::{Baseline, Text},
 };
 
-#[cfg(not(feature = "desktop"))]
+#[cfg(all(not(feature = "desktop"), not(feature = "s3")))]
 use esp_hal::{i2c::master::I2c, Blocking};
-#[cfg(not(feature = "desktop"))]
+#[cfg(all(not(feature = "desktop"), not(feature = "s3")))]
 use ssd1306::{
     mode::BufferedGraphicsMode, prelude::*, rotation::DisplayRotation, size::DisplaySize128x64,
     I2CDisplayInterface, Ssd1306,
 };
 
-#[cfg(not(feature = "desktop"))]
+#[cfg(all(not(feature = "desktop"), not(feature = "s3")))]
 type DisplayInterface = ssd1306::prelude::I2CInterface<I2c<'static, Blocking>>;
-#[cfg(not(feature = "desktop"))]
+#[cfg(all(not(feature = "desktop"), not(feature = "s3")))]
 type Display = Ssd1306<DisplayInterface, DisplaySize128x64, BufferedGraphicsMode<DisplaySize128x64>>;
 
 #[cfg(feature = "desktop")]
 type Display = desktop_fb::DesktopFramebuffer;
+
+#[cfg(feature = "s3")]
+type Display = crate::s3::board::Display;
 
 pub struct Sprite {
     pub width: u16,
@@ -58,12 +61,21 @@ pub struct Renderer {
 }
 
 impl Renderer {
-    #[cfg(not(feature = "desktop"))]
+    #[cfg(all(not(feature = "desktop"), not(feature = "s3")))]
     pub fn new(i2c: I2c<'static, Blocking>) -> Self {
         let interface = I2CDisplayInterface::new(i2c);
         let mut display = Ssd1306::new(interface, DisplaySize128x64, DisplayRotation::Rotate0)
             .into_buffered_graphics_mode();
         display.init().unwrap();
+        Self {
+            display,
+            invert_state: false,
+        }
+    }
+
+    /// S3: the AMOLED arrives initialized from `board::init`.
+    #[cfg(feature = "s3")]
+    pub fn new(display: Display) -> Self {
         Self {
             display,
             invert_state: false,
@@ -112,6 +124,9 @@ impl Renderer {
     }
 
     pub fn flush(&mut self) {
+        // The touch controls highlight whatever is pressed right now.
+        #[cfg(feature = "s3")]
+        self.display.set_pressed(crate::s3::input::pressed_mask());
         self.display.flush().unwrap();
     }
 

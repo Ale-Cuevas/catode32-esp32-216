@@ -1,0 +1,20 @@
+[build]
+target = "xtensa-esp32s3-none-elf"
+
+[target.xtensa-esp32s3-none-elf]
+runner = "espflash flash --monitor --chip esp32s3 --flash-size 16mb"
+rustflags = [
+  "-C", "link-arg=-nostartfiles",
+  "-C", "link-arg=-Wl,-Tlinkall.x",
+  # esp-hal's linker script maps IRAM as RWX on purpose.
+  "-C", "link-arg=-Wl,--no-warn-rwx-segments",
+  # Lets esp-backtrace walk the stack for the panic record.
+  "-C", "force-frame-pointers",
+]
+
+[env]
+ESP_LOG = "info"
+
+[unstable]
+# `alloc` for the wifi heap (esp-alloc).
+build-std = ["core", "alloc"]
