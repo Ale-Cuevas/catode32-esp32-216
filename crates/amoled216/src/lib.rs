@@ -7,11 +7,13 @@
 //! (`touch`). `controls` rasterizes the on-screen buttons, `co5300` drives
 //! the panel through a small `QspiBus` trait, and `panel` streams frames and
 //! controls to it. `display` is the 1bpp `DrawTarget` core renders into on
-//! the S3. `cst9220` reads touch points over `embedded_hal::i2c`.
+//! the S3. `cst9220` reads touch points and `axp2101` the battery and USB
+//! state over `embedded_hal::i2c`.
 //! No esp-hal here, so it is unit-tested on the host and shared by
 //! the desktop sim and the firmware.
 #![cfg_attr(not(test), no_std)]
 
+pub mod axp2101;
 pub mod co5300;
 pub mod controls;
 pub mod cst9220;
