@@ -145,10 +145,11 @@ Target a minimal patch to upstream files, since upstream is active and you may w
 - **Done when:** the game boots to the pet, responds to touch, saves and reloads.
 
 ### WP6: Power and sleep
-- Phase 1: skip deep sleep on `s3`; use the existing soft sleep (display off, poll for touch/BOOT).
-- Phase 2: deep sleep with wake on BOOT (GPIO0) and/or touch INT, using the S3 RTC wake APIs (different from the C6 LP-IO code) **[assumed, verify in esp-hal]**.
-- PWR button and battery level via AXP2101 (optional).
-- Burn-in mitigation: the controls area is static, so dim or blank it when idle, and consider slow pixel shifting.
+- Phase 1: skip deep sleep on `s3`; use the existing soft sleep (display off, poll for touch/BOOT). **Done in WP5.**
+- Phase 2: deep sleep with wake on BOOT (GPIO0) and USER (GPIO18). **Built, compile-only:** esp-hal 1.2.2 uses the same `listen` + `apply_wakeup_config(low_power_path)` API as the C6, backed by ext1 any-low on the S3. Touch does **not** wake it (decided: standby current and accidental touches). Fallback: `--features s3-sleep-standin`.
+- Battery level via AXP2101: **built, host-tested.** `amoled216::axp2101` + `core/src/s3/pmu.rs` behind `platform::power::status()`; an always-visible status bar (`amoled216::status`). Power policy: basic sleep turns into deep sleep only on battery at ≤5% (the pet's clock stops in deep sleep without an RTC). PWR button: driver flag only, not used yet.
+- Burn-in mitigation: **built, host-tested** (`amoled216::burnin`). Controls and status bar dim after 30 s, the panel after 2 min, and a ±4 px orbit runs every 2 min.
+- Remaining (needs the board): `docs/DEVICE_TESTS.md` WP6 steps 22–28 and the deferred list there (GPIO16 PWR sense, PWR short-press flag, S3 light sleep for basic sleep, GPIO46 amp).
 - **Done when:** idle display turns off, wakes reliably, battery use is sane.
 
 ### WP7: Optional polish

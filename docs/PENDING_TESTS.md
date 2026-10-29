@@ -21,6 +21,16 @@ One line per check that has only been compiled or host-tested. Steps are in `DEV
 - PENDING: WP5.2 all on-screen controls work, BOOT = B, USER = Menu1, held direction + A combo works
 - PENDING: WP5.3 soft sleep turns the screen off; touch and BOOT/USER wake it
 - PENDING: WP5.4 save survives RESET
-- PENDING: WP5.5 deep-sleep stand-in: dark until BOOT/USER, then reboots into the game
+- PENDING: WP5.5 (only with `--features s3-sleep-standin`, if WP6.5 fails) deep-sleep stand-in: dark until BOOT/USER, then reboots into the game
 - PENDING: WP5.6 Wi-Fi scan works on the S3
 - PENDING: WP5.7 10 min run without reset or panic record
+- PENDING: WP6.1 `[s3] PMU ok` at boot; battery_mv ____ vs meter ____ mV; battery_pct ____
+- PENDING: WP6.2 status bar: `USB` without battery, bolt + % on USB with battery, bolt gone within ~5 s of unplugging
+- PENDING: WP6.3 controls dim after ~30 s, panel after ~2 min; a tap restores both and still acts as a press
+- PENDING: WP6.4 2 px shift every 2 min leaves no stray pixels; touch zones unaffected
+- PENDING: WP6.5 deep sleep: touch doesn't wake; BOOT wakes ____, USER wakes ____; boot log wakeup cause: ____
+- PENDING: WP6.6 current on battery: deep sleep ____ mA, basic sleep ____ mA, running ____ mA
+- PENDING: WP6.7 (optional, nearly empty battery) basic sleep at <=5% on battery saves and deep sleeps; on USB it doesn't
+- PENDING: WP6.8 deferred: GPIO16 reads ____ while PWR is held (expected HIGH)
+- PENDING: WP6.9 deferred: AXP2101 PWR short press sets INTSTS2 bit 3 with polling only (yes/no): ____
+- PENDING: WP6.10 deferred: decide on S3 light sleep for basic sleep from WP6.6 (and GPIO46 amp LOW before deep sleep if deep-sleep current is high)

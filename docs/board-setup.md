@@ -67,4 +67,4 @@ cargo run --release
 
 Controls: the on-screen D-pad, A, B, M1 and M2. **BOOT** is B (back) and **USER** is Menu1. Work through the WP5 table in [`DEVICE_TESTS.md`](DEVICE_TESTS.md) (steps 15–21) and fill in WP5.1–WP5.7 in [`PENDING_TESTS.md`](PENDING_TESTS.md).
 
-Deep sleep is a stand-in for now: the screen goes dark and BOOT or USER reboots the board. Real deep sleep is WP6 in `PORT_PLAN_S3_AMOLED.md`.
+Deep sleep is real deep sleep now (WP6): the screen goes dark and only BOOT or USER wake the board, which then reboots into the game. Touch never wakes it. If it misbehaves, build with `--features s3-sleep-standin` for the older busy-wait version. Then work through the WP6 table in [`DEVICE_TESTS.md`](DEVICE_TESTS.md) (steps 22–28) and fill in WP6.1–WP6.10 in [`PENDING_TESTS.md`](PENDING_TESTS.md).

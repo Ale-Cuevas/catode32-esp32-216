@@ -62,12 +62,16 @@ There is **no I/O expander**. Display reset, touch reset and SD CS are plain GPI
 
 ## PMIC (AXP2101)
 The demo leaves the rails at their power-on defaults and only sets the charge target to 4.2 V. Do the same, and don't change rail voltages without a source.
+- Driver: `crates/amoled216/src/axp2101.rs`, registers and bits from XPowersLib 0.2.6. `init` = check `IC_TYPE` (0x03) = 0x4A, NTC measurement off and battery voltage ADC on (0x30), charge target 4.2 V (0x64 low bits = 3), battery detection on (0x68 bit 0), PWR short-press IRQ enabled (0x41 bit 3), IRQ status cleared (0x48-0x4A, write 1 to clear). It writes no other register.
+- Status: 0x00 bit 5 VBUS good, bit 3 battery present; 0x01 bits 7:5 charge state (1 = charging, 2 = discharging), bit 3 set = VBUS not in use; battery mV = 0x34 low 5 bits << 8 | 0x35; gauge % = 0xA4.
+- No ESP32 GPIO is known to carry the PMIC IRQ line, so everything is polled (`core/src/s3/pmu.rs`, every 5 s).
 
 ## Port decisions
 - The skill's "single target, replace the old board" rule does **not** apply here. Per CLAUDE.md, C6/C3 stay supported and the S3 becomes another cfg arm (`s3` feature) at the existing seams.
 - There is no addressable RGB LED, so `Led` becomes a no-op on `s3`.
 - BOOT = B (back) and USER = Menu1 (`amoled216::touch::key_mask`), OR-ed with the touch zones.
-- The S3 backend lives in `crates/core/src/s3/` and is built by `crates/firmware-s3` (own workspace, `esp` toolchain). Deep sleep is a stand-in until WP6: panel and touch off, BOOT/USER resets.
+- The S3 backend lives in `crates/core/src/s3/` and is built by `crates/firmware-s3` (own workspace, `esp` toolchain). Deep sleep (WP6): panel and touch chip off, touch INT unlistened, BOOT and USER armed low-level on the low-power path (ext1 any-low on the S3). Touch never wakes deep sleep. `--features s3-sleep-standin` keeps the WP5 busy-wait stand-in as a fallback.
+- Screen layout (WP6): a 30 px status bar on top (battery), the 3x frame at y=34, and controls from y=240. Burn-in: everything moves in a ±4 px ring, one 2 px step every 2 min, inside fixed panel windows. The frame window is the viewport plus a 4 px margin.
 - The shared I2C bus is an `embedded-hal-bus` `CriticalSectionDevice`, so the touch state can sit in a static.
 
 ## Toolchain (verified 2026-10-28 by building `crates/s3-bringup`)

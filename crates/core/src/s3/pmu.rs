@@ -30,11 +30,13 @@ pub(crate) fn install(mut pmu: Axp2101<SharedI2c>) {
         println!("[s3] PMU init failed: {:?}", e);
         return;
     }
+    // Raw reading (with battery mV) once, for checking against a meter.
+    match pmu.status() {
+        Ok(s) => println!("[s3] PMU ok: {:?}", s),
+        Err(e) => println!("[s3] PMU read failed: {:?}", e),
+    }
     let mut state = State { pmu, last: None, last_poll: None, read_error_logged: false };
     poll(&mut state);
-    if let Some(s) = state.last {
-        println!("[s3] PMU ok: {:?}", s);
-    }
     critical_section::with(|cs| STATE.borrow_ref_mut(cs).replace(state));
 }
 

@@ -72,8 +72,31 @@ Controls: the on-screen D-pad, A, B, M1 and M2. **BOOT** is B (back) and **USER*
 |---|---|---|---|
 | 15 | `[s3] touch Cst9220, fw 0x...`, then `catode32 v0.13.0 ... (ESP32-S3 AMOLED)` | The pet appears in the game area, 3x size, with the controls below it. | `[s3] display init failed` / `[s3] touch probe failed`: copy the line. A blank screen with a clean log: compare with WP3 step 2. |
 | 16 | (none) | Play: walk the pet with the D-pad, open the menu with M1 and with **USER**, go back with B and with **BOOT**. Hold a direction and press A at the same time (e.g. in the platformer). The pressed control lights up. | Note any button that does nothing or acts as another one. `[s3] touch read failed` appears once if the touch chip stops answering. |
-| 17 | `[Sleep] Entering basic sleep` after the idle timeout | Leave it alone until the screen turns off. Then tap the screen, or press BOOT. | It should wake on the touch and on BOOT/USER. If only the keys wake it, note it. |
+| 17 | `[Sleep] Entering basic sleep` after the idle timeout (15 min) | Leave it alone until the screen turns off. Then tap the screen, or press BOOT. | It should wake on the touch and on BOOT/USER. If only the keys wake it, note it. (Touch wakes basic sleep only, never deep sleep.) |
 | 18 | (save on its own schedule, or from the debug menu) | Change something visible (feed the pet, rename it), wait for a save or trigger one, then tap RESET. | After the reboot the change is still there. If not, copy the boot log (storage lines). |
-| 19 | `[Power] Deep sleep (S3 stand-in: panel off, BOOT/USER resets)` | Trigger deep sleep from the Power debug menu. The screen goes dark. Touching the screen does nothing. Press **BOOT** or **USER**. | The board reboots into the game. This is a stand-in until WP6 adds real deep sleep. |
+| 19 | (replaced by step 26) | Real deep sleep landed in WP6. The old stand-in is only built with `--features s3-sleep-standin`; run this step only if step 26 fails and you fall back to it: the log says `[Power] Deep sleep (S3 stand-in ...)`, the screen goes dark, touch does nothing, BOOT or USER reboots into the game. | |
 | 20 | Wi-Fi scan log lines | Trigger a Wi-Fi scan from the debug menu. | Networks are found and the game keeps running. Copy any radio error. |
 | 21 | (none) | Leave the game running for 10 min. | No reset, no `[panic]` record on the Power debug screen, and the animation keeps going. |
+
+## WP6: power, sleep and burn-in (`crates/firmware-s3`)
+
+Same build and flash as WP5. A USB power meter (or a multimeter on the battery lead) helps with steps 22 and 26. Battery = a 3.7 V LiPo on the MX1.25 header.
+
+| # | What the log says | What to do / check | If it's wrong |
+|---|---|---|---|
+| 22 | `[s3] PMU ok: Status { vbus_in: .., battery_present: .., charge: .., battery_mv: .., battery_pct: .. }` | Boot once on USB without a battery, once with a battery. Compare `battery_mv` with a multimeter on the battery. | `[s3] PMU init failed: WrongChip(..)` or an I2C error: copy it and the WP3.0 I2C scan. mV off by more than ~50: note both values. |
+| 23 | (none) | Status bar at the top right. Check: no battery + USB = `USB`; battery on USB = bolt + `NN%` with the icon filled to match; unplug USB = the bolt disappears within ~5 s. | Note what it shows for each case. `--` means the PMIC can't be read (see step 22). |
+| 24 | (none) | Leave it alone. After ~30 s the controls and status bar get dimmer; after ~2 min the whole panel dims. Tap a control: everything is bright again **and** the tap acts as a press. | Note the times, and whether dim is still readable or too bright. |
+| 25 | (none) | Watch the frame edges and the controls for about 5 min. Every 2 min everything moves by 2 px. | No leftover lit pixels at the frame border or around the controls after a move. Touch zones don't move, so taps near a control's edge still work. |
+| 26 | `[Power] Entering deep sleep (wake: BOOT/USER)` | Power debug menu, Deep Sleep. The screen goes dark. Touch the screen: nothing happens. Press **BOOT**: it reboots into the game, and the boot log shows `[Power] reset .., wakeup ..` naming ext1. Repeat with **USER**. | Wakes by itself at once: a wake pad isn't held high, so note it and try the stand-in (`cargo run --release --features s3-sleep-standin`). Never wakes: press RESET and note it. |
+| 27 | (none) | On battery only, in deep sleep (step 26): measure the current. Then in basic sleep (step 17) and while running. | Note the three values. This decides whether basic sleep needs S3 light sleep (see the list below). |
+| 28 | `[Sleep] Battery low, leaving basic sleep for deep sleep` | Optional, needs a nearly empty battery: on battery, let it reach basic sleep with the status bar at 5% or less. | It saves and deep sleeps. On USB it must stay in basic sleep. |
+
+### Deferred until the board is here
+
+Known unknowns, not built or not settled without hardware. Each one has a line in `PENDING_TESTS.md`.
+
+- **PWR key sense on GPIO16** (SYS_OUT via a BSS138): read the pin while holding PWR briefly. The schematic suggests HIGH while held. Nothing uses it yet.
+- **AXP2101 PWR short-press flag**: the driver has `take_power_key_press()` (INTSTS2 bit 3, polled, since the PMIC IRQ line goes to no known GPIO), but the game doesn't call it. Check that a short press sets the flag. If it does, it could toggle sleep. Never build a long-press gesture: a long press may cut power.
+- **S3 light sleep during basic sleep**: basic sleep still busy-waits at 2 FPS. Light sleep with a timer wake would save the most power, but esp-rtos and the radio have to survive it. Decide from the step 27 currents.
+- **Speaker amp enable (GPIO46)**: nothing drives it yet, so it isn't driven LOW before deep sleep. Revisit if step 27's deep-sleep current is high, or once audio exists.
