@@ -7,7 +7,7 @@
 //! (`touch`). `controls` rasterizes the on-screen buttons, `co5300` drives
 //! the panel through a small `QspiBus` trait, and `panel` streams frames and
 //! controls to it. `display` is the 1bpp `DrawTarget` core renders into on
-//! the S3; `burnin` decides when it dims and how far everything is shifted.
+//! the S3; `status` draws the battery bar above the frame; `burnin` decides when it dims and how far everything is shifted.
 //! `cst9220` reads touch points and `axp2101` the battery and USB
 //! state over `embedded_hal::i2c`.
 //! No esp-hal here, so it is unit-tested on the host and shared by
@@ -23,25 +23,37 @@ pub mod display;
 pub mod layout;
 pub mod panel;
 pub mod scale;
+pub mod status;
 pub mod touch;
 
 use burnin::Look;
 use controls::Theme;
-use layout::{FRAME_AREA, SCREEN_H, SCREEN_W};
+use layout::{FRAME_AREA, SCREEN_H, SCREEN_W, STATUS_AREA};
 use scale::{Palette, FRAME_ROW_BYTES, SRC_BYTES};
+use status::Power;
 
 /// Bytes in a full 480x480 RGB565 frame.
 pub const SCREEN_BYTES: usize = SCREEN_W as usize * SCREEN_H as usize * 2;
 
-/// Render the whole panel (controls plus the scaled game frame) as
+/// Render the whole panel (status bar, controls and the scaled game frame) as
 /// big-endian RGB565, with `look`'s shift and controls dimming (panel
 /// brightness is the caller's to emulate). For the desktop sim and
 /// screenshots. The firmware streams the same pixels in strips instead of
 /// holding a 450 KB frame.
-pub fn compose_screen(src: &[u8; SRC_BYTES], pressed: u8, palette: Palette, invert: bool, look: Look, out: &mut [u8]) {
+pub fn compose_screen(
+    src: &[u8; SRC_BYTES],
+    pressed: u8,
+    palette: Palette,
+    invert: bool,
+    look: Look,
+    power: Option<Power>,
+    out: &mut [u8],
+) {
     assert!(out.len() >= SCREEN_BYTES, "screen buffer too small");
     let theme = if look.controls_dim { Theme::dimmed(palette) } else { Theme::from_palette(palette) };
-    controls::render_rows(0, SCREEN_H, pressed, theme, look.offset, out);
+    let status_bytes = STATUS_AREA.h as usize * SCREEN_W as usize * 2;
+    status::render_rows(0, STATUS_AREA.h, power, theme, look.offset, out);
+    controls::render_rows(STATUS_AREA.h, SCREEN_H - STATUS_AREA.h, pressed, theme, look.offset, &mut out[status_bytes..]);
 
     let mut frame = [0u8; FRAME_ROW_BYTES];
     for y in 0..FRAME_AREA.h {
@@ -62,7 +74,7 @@ mod tests {
         src[0] = 0x80; // pixel (0, 0)
         let pal = Palette { fg: 0xF800, bg: 0x0000 };
         let mut out = vec![0u8; SCREEN_BYTES];
-        compose_screen(&src, 0, pal, false, Look::PLAIN, &mut out);
+        compose_screen(&src, 0, pal, false, Look::PLAIN, None, &mut out);
         let px = |x: usize, y: usize| u16::from_be_bytes([out[(y * 480 + x) * 2], out[(y * 480 + x) * 2 + 1]]);
         let (vx, vy) = (VIEWPORT.x as usize, VIEWPORT.y as usize);
         assert_eq!(px(vx, vy), 0xF800);

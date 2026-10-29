@@ -1,11 +1,12 @@
-//! S3 board init: AMOLED over QSPI + DMA, touch on the shared I2C bus,
-//! BOOT/USER keys. Hands the rest of the firmware the same `Board` fields as
+//! S3 board init: AMOLED over QSPI + DMA, touch and PMIC on the shared I2C
+//! bus, BOOT/USER keys. Hands the rest of the firmware the same `Board` fields as
 //! the C6/C3, except that the display arrives ready-made (`display`) instead
 //! of as an I2C bus.
 
 use core::cell::RefCell;
 
 use catode32_amoled216::{
+    axp2101::Axp2101,
     co5300::Co5300,
     cst9220::Cst9220,
     display::AmoledDisplay,
@@ -32,12 +33,13 @@ use static_cell::StaticCell;
 
 use super::bus::EspQspi;
 use super::input::{self, ButtonPin};
+use super::pmu;
 use crate::board::I2C_FREQ_KHZ;
 use crate::{input::Buttons, led::Led};
 
 /// What core's `Renderer` draws into.
 pub type Display = AmoledDisplay<EspQspi<'static>, Output<'static>, Delay>;
-/// The I2C bus is shared: touch now, PMIC/IMU/RTC later. A critical-section
+/// The I2C bus is shared: touch and PMIC now, IMU/RTC later. A critical-section
 /// device so users can sit in statics (the touch state does).
 pub type SharedI2c = CriticalSectionDevice<'static, I2c<'static, Blocking>>;
 
@@ -85,6 +87,8 @@ pub fn init(p: Peripherals) -> Board {
         println!("[s3] display init failed: {:?}", e);
     }
     let display = AmoledDisplay::new(panel, delay);
+
+    pmu::install(Axp2101::new(CriticalSectionDevice::new(i2c)));
 
     let tp_rst = Output::new(p.GPIO40, Level::High, OutputConfig::default());
     let mut touch = Cst9220::new(CriticalSectionDevice::new(i2c), tp_rst);

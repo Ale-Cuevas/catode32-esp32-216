@@ -129,6 +129,11 @@ impl Renderer {
         #[cfg(feature = "s3")]
         {
             self.display.set_pressed(crate::s3::input::pressed_mask());
+            self.display.set_power(crate::platform::power::status().map(|s| catode32_amoled216::status::Power {
+                battery_pct: s.battery_pct,
+                charging: s.charging,
+                usb: s.on_usb,
+            }));
             let now = crate::platform::time::Instant::now().duration_since_epoch();
             self.display.set_clock(now.as_millis());
         }

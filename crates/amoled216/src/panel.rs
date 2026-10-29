@@ -1,14 +1,15 @@
-//! The game's view of the AMOLED: push the 1bpp frame into the viewport and
-//! the touch controls into their band, streaming through one strip buffer
-//! (no 450 KB framebuffer).
+//! The game's view of the AMOLED: push the 1bpp frame into the viewport, the
+//! touch controls into their band and the battery into the status bar,
+//! streaming through one strip buffer (no 450 KB framebuffer).
 
 use embedded_hal::delay::DelayNs;
 use embedded_hal::digital::OutputPin;
 
 use crate::co5300::{Co5300, Error, QspiBus};
 use crate::controls::{self, Theme};
-use crate::layout::{Offset, CONTROLS_AREA, FRAME_AREA, SCREEN, SCREEN_W};
+use crate::layout::{Offset, CONTROLS_AREA, FRAME_AREA, SCREEN, SCREEN_W, STATUS_AREA};
 use crate::scale::{self, Palette, FRAME_ROW_BYTES, SRC_BYTES, STRIP_BYTES};
+use crate::status::{self, Power};
 
 /// Screen rows of the controls band that fit in one strip buffer.
 const CONTROL_ROWS_PER_STRIP: u16 = (STRIP_BYTES / (SCREEN_W as usize * 2)) as u16;
@@ -25,11 +26,23 @@ pub struct Amoled<B, RST> {
     /// Pressed mask the controls band currently shows, `None` = not drawn
     /// (or the colors changed), so the next `draw_controls` redraws it.
     controls_shown: Option<u8>,
+    power: Option<Power>,
+    /// The status bar needs a redraw.
+    status_dirty: bool,
 }
 
 impl<B: QspiBus, RST: OutputPin> Amoled<B, RST> {
     pub fn new(lcd: Co5300<B, RST>, palette: Palette) -> Self {
-        Self { lcd, strip: [0; STRIP_BYTES], palette, offset: Offset::ZERO, dim: false, controls_shown: None }
+        Self {
+            lcd,
+            strip: [0; STRIP_BYTES],
+            palette,
+            offset: Offset::ZERO,
+            dim: false,
+            controls_shown: None,
+            power: None,
+            status_dirty: true,
+        }
     }
 
     pub fn release(self) -> Co5300<B, RST> {
@@ -54,6 +67,7 @@ impl<B: QspiBus, RST: OutputPin> Amoled<B, RST> {
     /// Whole screen to one RGB565 color (bring-up color tests).
     pub fn fill_screen(&mut self, color: u16) -> Result<(), Error<B::Error, RST::Error>> {
         self.controls_shown = None;
+        self.status_dirty = true;
         self.lcd.fill(SCREEN, color, &mut self.strip)
     }
 
@@ -61,6 +75,7 @@ impl<B: QspiBus, RST: OutputPin> Amoled<B, RST> {
         if palette != self.palette {
             self.palette = palette;
             self.controls_shown = None;
+            self.status_dirty = true;
         }
     }
 
@@ -71,7 +86,39 @@ impl<B: QspiBus, RST: OutputPin> Amoled<B, RST> {
             self.offset = offset;
             self.dim = dim;
             self.controls_shown = None;
+            self.status_dirty = true;
         }
+    }
+
+    /// Battery state for the status bar; redrawn on the next
+    /// `draw_status` if it changed.
+    pub fn set_power(&mut self, power: Option<Power>) {
+        if power != self.power {
+            self.power = power;
+            self.status_dirty = true;
+        }
+    }
+
+    /// Redraw the status bar if anything it shows changed. Returns whether
+    /// anything was sent.
+    pub fn draw_status(&mut self) -> Result<bool, Error<B::Error, RST::Error>> {
+        if !self.status_dirty {
+            return Ok(false);
+        }
+        let (theme, offset, power) = (self.theme(), self.offset, self.power);
+        let mut y = STATUS_AREA.y;
+        let end = STATUS_AREA.bottom();
+        self.lcd.write_area(STATUS_AREA, &mut self.strip, |buf| {
+            if y >= end {
+                return 0;
+            }
+            let rows = CONTROL_ROWS_PER_STRIP.min(end - y);
+            let n = status::render_rows(y, rows, power, theme, offset, buf);
+            y += rows;
+            n
+        })?;
+        self.status_dirty = false;
+        Ok(true)
     }
 
     fn theme(&self) -> Theme {
@@ -200,6 +247,38 @@ mod tests {
         assert!(!a.draw_controls(0).unwrap());
         a.set_palette(Palette { fg: 0xFFFF, bg: 0 });
         assert!(a.draw_controls(0).unwrap());
+    }
+
+    #[test]
+    fn status_redraws_only_on_change() {
+        let (mut a, log) = amoled();
+        assert!(a.draw_status().unwrap(), "first draw");
+        assert_eq!(log.borrow()[0], reg(0x2A, &[0, 0, 1, 0xDF]));
+        assert_eq!(log.borrow()[1], reg(0x2B, &[0, 0, 0, 29]));
+        assert!(!a.draw_status().unwrap());
+
+        let p = Some(Power { battery_pct: Some(50), charging: false, usb: false });
+        a.set_power(p);
+        assert!(a.draw_status().unwrap());
+        a.set_power(p);
+        assert!(!a.draw_status().unwrap());
+        a.set_look(Offset::new(2, 2), false);
+        assert!(a.draw_status().unwrap(), "shift redraws");
+        a.set_look(Offset::new(2, 2), true);
+        assert!(a.draw_status().unwrap(), "dimming redraws");
+        a.clear().unwrap();
+        assert!(a.draw_status().unwrap(), "clear redraws");
+    }
+
+    #[test]
+    fn status_matches_rasterizer() {
+        let (mut a, _) = amoled();
+        let p = Some(Power { battery_pct: Some(73), charging: true, usb: true });
+        a.set_power(p);
+        a.draw_status().unwrap();
+        let mut expected = vec![0u8; STATUS_AREA.w as usize * STATUS_AREA.h as usize * 2];
+        status::render_rows(0, STATUS_AREA.h, p, Theme::from_palette(Palette::DEFAULT), Offset::ZERO, &mut expected);
+        assert_eq!(pixels(a), expected);
     }
 
     #[test]

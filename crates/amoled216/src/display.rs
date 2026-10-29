@@ -17,6 +17,7 @@ use crate::co5300::{Error, QspiBus, DEFAULT_BRIGHTNESS};
 use crate::layout::{SRC_H, SRC_W};
 use crate::panel::Amoled;
 use crate::scale::SRC_BYTES;
+use crate::status::Power;
 
 const ROW_BYTES: usize = SRC_W as usize / 8;
 
@@ -77,6 +78,7 @@ impl<B: QspiBus, RST: OutputPin, D: DelayNs> AmoledDisplay<B, RST, D> {
         }
         self.panel.flush_frame(&self.buf, self.invert)?;
         self.panel.draw_controls(self.pressed)?;
+        self.panel.draw_status()?;
         Ok(())
     }
 
@@ -102,6 +104,11 @@ impl<B: QspiBus, RST: OutputPin, D: DelayNs> AmoledDisplay<B, RST, D> {
 
     pub fn set_pressed(&mut self, mask: u8) {
         self.pressed = mask;
+    }
+
+    /// Battery state for the status bar (`None` = no reading).
+    pub fn set_power(&mut self, power: Option<Power>) {
+        self.panel.set_power(power);
     }
 
     /// Current time for burn-in mitigation; call before each flush.

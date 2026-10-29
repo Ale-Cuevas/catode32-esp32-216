@@ -132,6 +132,7 @@ fn capture_amoled(out: &Path, shot: &Shot) {
         amoled::scale::Palette::DEFAULT,
         false,
         amoled::burnin::Look::PLAIN,
+        Some(amoled::status::Power { battery_pct: Some(80), charging: false, usb: false }),
         &mut screen,
     );
 

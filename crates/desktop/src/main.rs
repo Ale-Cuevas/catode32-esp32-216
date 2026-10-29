@@ -17,7 +17,9 @@
 //! `--amoled` previews the ESP32-S3-Touch-AMOLED-2.16 port instead: a
 //! 480x480 window composed by `catode32-amoled216` (the same layout, scaler
 //! and touch hit-test the firmware uses), with the mouse acting as a finger
-//! on the on-screen controls. The keyboard still works alongside it.
+//! on the on-screen controls. The keyboard still works alongside it, and
+//! P / C stand in for the PMIC: P cycles the battery level, C plugs or
+//! unplugs USB.
 
 use std::process;
 use std::thread;
@@ -29,7 +31,11 @@ use catode32_core::{
     game::Game,
     input::{set_desktop_button, ButtonPin, Buttons},
     led::Led,
-    platform::{radio::WIFI, rng::Rng},
+    platform::{
+        power::{self, set_desktop_status, PowerStatus},
+        radio::WIFI,
+        rng::Rng,
+    },
     render::Renderer,
     storage,
 };
@@ -63,7 +69,8 @@ Usage: catode32-desktop [--fg RRGGBB] [--bg RRGGBB] [--amoled]
 Options:
   --fg RRGGBB   Lit pixel color (default 23A5CC)
   --bg RRGGBB   Background color (default 0A0A0A, or 000000 with --amoled)
-  --amoled      Preview the 480x480 AMOLED port: click the on-screen controls
+  --amoled      Preview the 480x480 AMOLED port: click the on-screen controls,
+                P cycles the battery level, C plugs/unplugs USB
   -h, --help    Print this help
 
 Colors are 6-digit hex, with or without a leading '#'.";
@@ -177,6 +184,7 @@ fn main() {
     let mut game = Game::new(renderer, buttons, rng, led, wifi, espnow);
 
     let mut view = if opts.amoled {
+        set_desktop_status(Some(PowerStatus { battery_pct: Some(BATTERY_STEPS[0]), charging: false, on_usb: false }));
         View::amoled(&opts)
     } else {
         View::classic(&opts)
@@ -210,6 +218,9 @@ fn main() {
                     if let Some(idx) = button_index(keycode) {
                         key_held[idx] = true;
                         key_tap[idx] = true;
+                    }
+                    if opts.amoled {
+                        fake_pmic_key(keycode);
                     }
                 }
                 SimulatorEvent::KeyUp { keycode, .. } => {
@@ -265,6 +276,29 @@ fn main() {
 
     // ESC or closing the window: save before exiting.
     game.save();
+}
+
+/// Battery levels P steps through; after the last one the battery is
+/// removed (`None`), then it starts over.
+const BATTERY_STEPS: [u8; 5] = [80, 50, 15, 5, 100];
+
+/// P / C: change the stand-in PMIC reading the status bar and the sleep
+/// policy see.
+fn fake_pmic_key(key: Keycode) {
+    let Some(mut s) = power::status() else { return };
+    match key {
+        Keycode::P => {
+            s.battery_pct = match s.battery_pct {
+                None => Some(BATTERY_STEPS[0]),
+                Some(p) => BATTERY_STEPS.iter().position(|&v| v == p).and_then(|i| BATTERY_STEPS.get(i + 1).copied()),
+            };
+        }
+        Keycode::C => s.on_usb = !s.on_usb,
+        _ => return,
+    }
+    s.charging = s.on_usb && s.battery_pct.is_some_and(|p| p < 100);
+    println!("[desktop] fake PMIC: {:?}", s);
+    set_desktop_status(Some(s));
 }
 
 /// Button mask for a click at `point` on the 480x480 AMOLED window.
@@ -400,7 +434,12 @@ fn blit_amoled(
             }
         }
     }
-    amoled::compose_screen(&src, pressed, palette, fb.invert(), look, screen);
+    let power = power::status().map(|s| amoled::status::Power {
+        battery_pct: s.battery_pct,
+        charging: s.charging,
+        usb: s.on_usb,
+    });
+    amoled::compose_screen(&src, pressed, palette, fb.invert(), look, power, screen);
 
     // Emulate the panel brightness register relative to its default.
     let (num, den) = (look.brightness as u16, amoled::co5300::DEFAULT_BRIGHTNESS as u16);
