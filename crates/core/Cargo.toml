@@ -65,6 +65,10 @@ s3 = [
     "esp-radio/esp32s3",
     "esp-rtos/esp32s3",
 ]
+# S3 only: keep the WP5 deep-sleep stand-in (panel and touch off, busy-wait
+# for BOOT/USER, then reset) instead of real deep sleep. A fallback in case
+# real deep sleep misbehaves on the board.
+s3-sleep-standin = ["s3"]
 # Host-side build: skips esp-* deps, swaps platform modules for std-backed shims.
 desktop = []
 

@@ -93,9 +93,15 @@ pub(crate) fn install(io_mux: IO_MUX<'static>, touch: Touch, mut int: Input<'sta
     // `Io` only registers the handler; dropping it doesn't undo that.
 }
 
-/// Put the touch chip to sleep (deep-sleep stand-in). From here on only
-/// BOOT and USER are read. A reset wakes the chip again.
+/// Put the touch chip to sleep before deep sleep, and stop listening on
+/// its INT pin so touch can't wake the chip. From here on only BOOT and
+/// USER are read. A reset wakes the chip again.
 pub fn sleep_touch() {
+    critical_section::with(|cs| {
+        if let Some(pin) = INT_PIN.borrow_ref_mut(cs).as_mut() {
+            pin.unlisten();
+        }
+    });
     with_state(|s| {
         if let Err(e) = s.touch.sleep() {
             println!("[s3] touch sleep failed: {:?}", e);

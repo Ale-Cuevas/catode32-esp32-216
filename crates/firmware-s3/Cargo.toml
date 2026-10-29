@@ -22,6 +22,8 @@ lang-es = ["catode32-core/lang-es"]
 lang-fr = ["catode32-core/lang-fr"]
 lang-it = ["catode32-core/lang-it"]
 lang-nl = ["catode32-core/lang-nl"]
+# Busy-wait deep-sleep stand-in instead of real deep sleep (see core).
+s3-sleep-standin = ["catode32-core/s3-sleep-standin"]
 
 [dependencies]
 catode32-core = { path = "../core", default-features = false, features = ["s3"] }

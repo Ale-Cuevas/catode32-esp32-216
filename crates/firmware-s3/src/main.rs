@@ -34,6 +34,8 @@ fn main() -> ! {
     let renderer = Renderer::new(board.display);
 
     println!("catode32 v0.13.0 behavior framework (ESP32-S3 AMOLED)");
+    // Empty after a normal boot; names ext1 (BOOT/USER) after deep sleep.
+    println!("[Power] reset {:?}, wakeup {:?}", esp_hal::system::reset_reason(), esp_hal::system::wakeup_cause());
 
     let timg0 = TimerGroup::new(board.timg0);
     esp_rtos::start(timg0.timer0, board.sw_int0);

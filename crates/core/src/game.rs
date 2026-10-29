@@ -478,11 +478,54 @@ impl Game {
         LowPower::new(unsafe { LPWR::steal() }).sleep_deep(RtcSleepConfig::deep());
     }
 
-    /// S3 stand-in until real deep sleep (port plan WP6): panel and touch
-    /// off, wait for BOOT or USER, then reset. Waking from deep sleep resets
-    /// too, so the game sees the same thing; only the power saving is
-    /// missing.
-    #[cfg(feature = "s3")]
+    /// S3 deep sleep: panel and touch chip off, wake on BOOT (GPIO0) or
+    /// USER (GPIO18) through ext1 any-low. Touch never wakes it (on
+    /// purpose: standby current and pocket touches). The device resets on
+    /// wake, so the game resumes from the last save.
+    #[cfg(all(feature = "s3", not(feature = "s3-sleep-standin")))]
+    fn enter_deep_sleep(&mut self) -> ! {
+        use esp_hal::{
+            gpio::{Event, Input, InputConfig, Pull, WakeupConfig},
+            peripherals::{GPIO0, GPIO18, LPWR},
+            rtc_cntl::sleep::{LowPower, RtcSleepConfig},
+        };
+
+        use crate::{input::Button, sleep_manager::wait_buttons_stable_released_mask};
+
+        // BOOT and USER (`amoled216::touch::key_mask`).
+        const WAKE_BUTTONS: [Button; 2] = [Button::B, Button::Menu1];
+
+        println!("[Power] Entering deep sleep (wake: BOOT/USER)");
+        self.renderer.clear();
+        self.renderer.flush();
+        self.renderer.power_off();
+        // Same as the C6: a held key or its release bounce would end the
+        // sleep at once.
+        wait_buttons_stable_released_mask(&self.buttons, &WAKE_BUTTONS, Duration::from_millis(500));
+        crate::s3::input::sleep_touch();
+
+        // Safety: deep sleep is one-way; the `Input`s in `s3::input` are
+        // never read again. The keys have external 10K pull-ups, which hold
+        // the pads high through the sleep, so no internal pull.
+        let key_cfg = InputConfig::default().with_pull(Pull::None);
+        let mut pins = [
+            Input::new(unsafe { GPIO0::steal() }, key_cfg),
+            Input::new(unsafe { GPIO18::steal() }, key_cfg),
+        ];
+        let wake_config = WakeupConfig::default().with_low_power_path(true);
+        for pin in &mut pins {
+            pin.listen(Event::LowLevel);
+            pin.apply_wakeup_config(&wake_config).unwrap();
+        }
+
+        watchdog::stop();
+        LowPower::new(unsafe { LPWR::steal() }).sleep_deep(RtcSleepConfig::deep());
+    }
+
+    /// S3 stand-in (`s3-sleep-standin`): panel and touch off, wait for BOOT
+    /// or USER, then reset. Waking from deep sleep resets too, so the game
+    /// sees the same thing; only the power saving is missing.
+    #[cfg(feature = "s3-sleep-standin")]
     fn enter_deep_sleep(&mut self) -> ! {
         use crate::{input::Button, sleep_manager::wait_buttons_stable_released_mask};
 
