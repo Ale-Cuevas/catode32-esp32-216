@@ -11,6 +11,10 @@
 //!     returning player on its next behavior pick, and signal the active
 //!     scene's behavior manager to wind down quickly so the greeting fires
 //!     promptly rather than at the next natural completion.
+//!   - On battery only (`platform::power::status`), a critically low
+//!     battery ends basic sleep in deep sleep instead (`deep_sleep_due`).
+//!     Not sooner: without an RTC the pet's clock stops in deep sleep,
+//!     while basic sleep keeps it running. On USB it never happens.
 //!
 //! TODO(deep_sleep): implement a "deep" mode (true MCU light/deep sleep with
 //! GPIO IRQ wake) once esp-hal's sleep APIs are wired up.
@@ -23,6 +27,7 @@
 //! screen-off saving (~1-2 mA) is the only real power benefit of basic
 //! mode.
 
+use crate::platform::power::{self, PowerStatus};
 use crate::platform::time::{Duration, Instant};
 use crate::platform::watchdog;
 
@@ -64,6 +69,28 @@ pub const SLEEP_TIMEOUT: Duration = Duration::from_secs(900);
 /// Game update rate while in basic sleep.
 pub const SLEEP_FPS: u64 = 2;
 pub const SLEEP_FRAME_TIME_MS: u64 = 1000 / SLEEP_FPS;
+
+/// Battery level at or below which basic sleep turns into deep sleep.
+pub const DEEP_SLEEP_BATTERY_PCT: u8 = 5;
+
+/// How basic sleep ended.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SleepExit {
+    /// A button woke it; the display is back on.
+    Woken,
+    /// The battery ran low (`deep_sleep_due`); the display is still off and
+    /// the caller should save and deep sleep.
+    DeepSleep,
+}
+
+/// Deep sleep only on a known, discharging, critically low battery. No
+/// reading, no battery or USB power all keep the device in basic sleep.
+pub fn deep_sleep_due(status: Option<PowerStatus>) -> bool {
+    matches!(
+        status,
+        Some(PowerStatus { battery_pct: Some(pct), on_usb: false, .. }) if pct <= DEEP_SLEEP_BATTERY_PCT
+    )
+}
 
 pub struct SleepManager {
     sleeping: bool,
@@ -108,7 +135,8 @@ impl SleepManager {
         }
     }
 
-    /// Block in basic sleep until any button is pressed.
+    /// Block in basic sleep until any button is pressed, or until the
+    /// battery says to deep sleep (`SleepExit::DeepSleep`).
     ///
     /// The display is powered off for the duration; the game keeps ticking
     /// at `SLEEP_FPS` so needs and time still advance while the screen is
@@ -121,7 +149,7 @@ impl SleepManager {
         ctx: &mut GameContext,
         scene_manager: &mut SceneManager,
         time_system: &mut TimeSystem,
-    ) {
+    ) -> SleepExit {
         println!("[Sleep] Entering basic sleep");
         self.sleeping = true;
         renderer.power_off();
@@ -141,6 +169,11 @@ impl SleepManager {
                 let dt = (elapsed_ms as f32) / 1000.0 * ctx.time_speed;
                 time_system.advance(ctx, dt);
                 scene_manager.sleep_update(ctx, buttons, dt);
+                if deep_sleep_due(power::status()) {
+                    println!("[Sleep] Battery low, leaving basic sleep for deep sleep");
+                    self.sleeping = false;
+                    return SleepExit::DeepSleep;
+                }
             }
         }
 
@@ -156,5 +189,25 @@ impl SleepManager {
         // either honor this (rouse in ~3s) or veto the greeting and stay
         // asleep based on serenity (matches the MicroPython port).
         scene_manager.mark_behavior_almost_done(ctx);
+        SleepExit::Woken
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn battery(pct: Option<u8>, on_usb: bool) -> Option<PowerStatus> {
+        Some(PowerStatus { battery_pct: pct, charging: on_usb, on_usb })
+    }
+
+    #[test]
+    fn deep_sleep_only_on_a_low_battery_without_usb() {
+        assert!(deep_sleep_due(battery(Some(DEEP_SLEEP_BATTERY_PCT), false)));
+        assert!(deep_sleep_due(battery(Some(0), false)));
+        assert!(!deep_sleep_due(battery(Some(DEEP_SLEEP_BATTERY_PCT + 1), false)));
+        assert!(!deep_sleep_due(battery(Some(1), true)), "never on USB");
+        assert!(!deep_sleep_due(battery(None, false)), "no battery");
+        assert!(!deep_sleep_due(None), "no PMIC reading");
     }
 }

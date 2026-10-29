@@ -14,7 +14,7 @@ use crate::{
     render::Renderer,
     save,
     scene::{SceneId, SceneManager},
-    sleep_manager::SleepManager,
+    sleep_manager::{SleepExit, SleepManager},
     time_system::TimeSystem,
     transition::{TransitionManager, TransitionStep},
     wifi_tracker,
@@ -300,13 +300,18 @@ impl Game {
                 }
                 if self.sleep_pending {
                     self.sleep_pending = false;
-                    self.sleep_manager.enter_sleep(
+                    let exit = self.sleep_manager.enter_sleep(
                         &mut self.renderer,
                         &mut self.buttons,
                         &mut self.context,
                         &mut self.scene_manager,
                         &mut self.time_system,
                     );
+                    if exit == SleepExit::DeepSleep {
+                        // Unattended, so save what basic sleep advanced.
+                        save::save(&mut self.context);
+                        self.enter_deep_sleep();
+                    }
                     // Replace the auto-advanced `In` phase with a fresh
                     // in-only reveal so the wake fade plays from full black.
                     self.transition.start_in_only();
