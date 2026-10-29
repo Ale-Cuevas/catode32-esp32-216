@@ -27,7 +27,7 @@ The workspace's default build target is `riscv32imac-unknown-none-elf` (`.cargo/
 # Firmware (ESP32-C6 by default): build, flash via espflash, open serial monitor
 cargo run --release
 # ESP32-C3 instead of C6
-cargo run --release --no-default-features --features c3,lang-en
+cargo run --release --no-default-features --features c3,lang-en --target riscv32imc-unknown-none-elf
 # Different language (en, de, es, fr, it, nl; enable exactly one)
 cargo run --release --no-default-features --features c6,lang-de
 
