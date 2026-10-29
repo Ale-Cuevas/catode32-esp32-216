@@ -4,7 +4,7 @@
 //! 147 KB, so it is streamed in strips of `STRIP_SRC_ROWS` source rows
 //! instead of being held in RAM.
 
-use crate::layout::{SCALE, SRC_H, SRC_W};
+use crate::layout::{Offset, FRAME_AREA, SCALE, SHIFT_MAX, SRC_H, SRC_W};
 
 /// Packed source frame: row-major, MSB-first within each byte. Same layout
 /// as core's `render::desktop_fb::DesktopFramebuffer` and the SSD1306 sprites.
@@ -103,9 +103,107 @@ pub fn scale_strip(
     len
 }
 
+/// Bytes per row of `layout::FRAME_AREA`.
+pub const FRAME_ROW_BYTES: usize = FRAME_AREA.w as usize * 2;
+
+/// Render rows `y0..y0 + n_rows` of `FRAME_AREA` (window-relative) as
+/// big-endian RGB565: the 3x frame moved by `offset` inside the
+/// `SHIFT_MAX` margin, which is `palette.bg` (not inverted, like the rest
+/// of the screen). Returns the number of bytes written.
+pub fn frame_rows(
+    src: &[u8; SRC_BYTES],
+    y0: u16,
+    n_rows: u16,
+    offset: Offset,
+    palette: Palette,
+    invert: bool,
+    out: &mut [u8],
+) -> usize {
+    assert!(y0 + n_rows <= FRAME_AREA.h, "rows past end of frame area");
+    assert!(offset.dx.unsigned_abs() as u16 <= SHIFT_MAX && offset.dy.unsigned_abs() as u16 <= SHIFT_MAX);
+    let len = n_rows as usize * FRAME_ROW_BYTES;
+    assert!(out.len() >= len, "strip buffer too small");
+
+    let p = palette.resolve(invert);
+    let (fg, bg, border) = (p.fg.to_be_bytes(), p.bg.to_be_bytes(), palette.bg.to_be_bytes());
+    let scale = SCALE as usize;
+    let left = (SHIFT_MAX as i32 + offset.dx as i32) as usize;
+    let top = SHIFT_MAX as i32 + offset.dy as i32;
+    // Source row the previous output row showed, to copy instead of redraw.
+    let mut prev: Option<usize> = None;
+
+    for r in 0..n_rows as usize {
+        let base = r * FRAME_ROW_BYTES;
+        let fy = (y0 as usize + r) as i32 - top;
+        let src_y = (0..(SRC_H * SCALE) as i32).contains(&fy).then(|| fy as usize / scale);
+        if r > 0 && src_y.is_some() && src_y == prev {
+            out.copy_within(base - FRAME_ROW_BYTES..base, base);
+            continue;
+        }
+        prev = src_y;
+        let row = &mut out[base..base + FRAME_ROW_BYTES];
+        for px in row.as_chunks_mut::<2>().0 {
+            *px = border;
+        }
+        let Some(sy) = src_y else { continue };
+        let src_row = &src[sy * SRC_ROW_BYTES..][..SRC_ROW_BYTES];
+        for (bx, &byte) in src_row.iter().enumerate() {
+            for bit in 0..8 {
+                let color = if byte & (0x80 >> bit) != 0 { fg } else { bg };
+                let x = left + (bx * 8 + bit) * scale;
+                for dx in 0..scale {
+                    row[(x + dx) * 2..][..2].copy_from_slice(&color);
+                }
+            }
+        }
+    }
+    len
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn frame_rows_match_scale_strip_inside_the_margin() {
+        let mut src = [0u8; SRC_BYTES];
+        src[0] = 0x80;
+        src[SRC_BYTES - 1] = 0x01;
+        src[100] = 0x5A;
+        let pal = Palette { fg: FG, bg: 0x0841 };
+        for invert in [false, true] {
+            for offset in [Offset::ZERO, Offset::new(4, -4), Offset::new(-2, 3)] {
+                let mut frame = vec![0u8; FRAME_AREA.h as usize * FRAME_ROW_BYTES];
+                // Two calls, split mid-way, must equal one.
+                let a = frame_rows(&src, 0, 77, offset, pal, invert, &mut frame);
+                frame_rows(&src, 77, FRAME_AREA.h - 77, offset, pal, invert, &mut frame[a..]);
+                let mut plain = vec![0u8; strip_bytes(SRC_H as usize)];
+                scale_strip(&src, 0, SRC_H as usize, pal, invert, &mut plain);
+
+                let left = (SHIFT_MAX as i32 + offset.dx as i32) as usize;
+                let top = (SHIFT_MAX as i32 + offset.dy as i32) as usize;
+                for y in 0..FRAME_AREA.h as usize {
+                    for x in 0..FRAME_AREA.w as usize {
+                        let got = &frame[(y * FRAME_AREA.w as usize + x) * 2..][..2];
+                        let inside = (left..left + OUT_W).contains(&x) && (top..top + OUT_W / 2).contains(&y);
+                        let want = if inside {
+                            plain[((y - top) * OUT_W + x - left) * 2..][..2].to_vec()
+                        } else {
+                            pal.bg.to_be_bytes().to_vec()
+                        };
+                        assert_eq!(got, &want[..], "({x}, {y}) offset {offset:?} invert {invert}");
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    #[should_panic]
+    fn frame_rows_rejects_offsets_past_the_margin() {
+        let mut out = vec![0u8; FRAME_ROW_BYTES];
+        frame_rows(&[0; SRC_BYTES], 0, 1, Offset::new(5, 0), Palette::DEFAULT, false, &mut out);
+    }
 
     const FG: u16 = 0xF81F;
     const BG: u16 = 0x0841;

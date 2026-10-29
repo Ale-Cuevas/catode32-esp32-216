@@ -7,16 +7,21 @@ use embedded_hal::digital::OutputPin;
 
 use crate::co5300::{Co5300, Error, QspiBus};
 use crate::controls::{self, Theme};
-use crate::layout::{CONTROLS_AREA, SCREEN, SCREEN_W, SRC_H, VIEWPORT};
-use crate::scale::{self, Palette, SRC_BYTES, STRIP_BYTES, STRIP_SRC_ROWS};
+use crate::layout::{Offset, CONTROLS_AREA, FRAME_AREA, SCREEN, SCREEN_W};
+use crate::scale::{self, Palette, FRAME_ROW_BYTES, SRC_BYTES, STRIP_BYTES};
 
 /// Screen rows of the controls band that fit in one strip buffer.
 const CONTROL_ROWS_PER_STRIP: u16 = (STRIP_BYTES / (SCREEN_W as usize * 2)) as u16;
+/// Rows of `FRAME_AREA` that fit in one strip buffer.
+const FRAME_ROWS_PER_STRIP: u16 = (STRIP_BYTES / FRAME_ROW_BYTES) as u16;
 
 pub struct Amoled<B, RST> {
     lcd: Co5300<B, RST>,
     strip: [u8; STRIP_BYTES],
     palette: Palette,
+    /// Burn-in shift and controls dimming (`burnin::Look`).
+    offset: Offset,
+    dim: bool,
     /// Pressed mask the controls band currently shows, `None` = not drawn
     /// (or the colors changed), so the next `draw_controls` redraws it.
     controls_shown: Option<u8>,
@@ -24,7 +29,7 @@ pub struct Amoled<B, RST> {
 
 impl<B: QspiBus, RST: OutputPin> Amoled<B, RST> {
     pub fn new(lcd: Co5300<B, RST>, palette: Palette) -> Self {
-        Self { lcd, strip: [0; STRIP_BYTES], palette, controls_shown: None }
+        Self { lcd, strip: [0; STRIP_BYTES], palette, offset: Offset::ZERO, dim: false, controls_shown: None }
     }
 
     pub fn release(self) -> Co5300<B, RST> {
@@ -59,16 +64,36 @@ impl<B: QspiBus, RST: OutputPin> Amoled<B, RST> {
         }
     }
 
-    /// Scale the 128x64 frame 3x into the viewport.
+    /// Burn-in shift and controls dimming. Takes effect on the next flush;
+    /// the controls redraw if either changed.
+    pub fn set_look(&mut self, offset: Offset, dim: bool) {
+        if (offset, dim) != (self.offset, self.dim) {
+            self.offset = offset;
+            self.dim = dim;
+            self.controls_shown = None;
+        }
+    }
+
+    fn theme(&self) -> Theme {
+        if self.dim {
+            Theme::dimmed(self.palette)
+        } else {
+            Theme::from_palette(self.palette)
+        }
+    }
+
+    /// Scale the 128x64 frame 3x into the viewport, moved by the burn-in
+    /// offset. Streams all of `FRAME_AREA`, so the margin is repainted too.
     pub fn flush_frame(&mut self, src: &[u8; SRC_BYTES], invert: bool) -> Result<(), Error<B::Error, RST::Error>> {
-        let palette = self.palette;
-        let mut row = 0usize;
-        self.lcd.write_area(VIEWPORT, &mut self.strip, |buf| {
-            if row >= SRC_H as usize {
+        let (palette, offset) = (self.palette, self.offset);
+        let mut y = 0u16;
+        self.lcd.write_area(FRAME_AREA, &mut self.strip, |buf| {
+            if y >= FRAME_AREA.h {
                 return 0;
             }
-            let n = scale::scale_strip(src, row, STRIP_SRC_ROWS, palette, invert, buf);
-            row += STRIP_SRC_ROWS;
+            let rows = FRAME_ROWS_PER_STRIP.min(FRAME_AREA.h - y);
+            let n = scale::frame_rows(src, y, rows, offset, palette, invert, buf);
+            y += rows;
             n
         })
     }
@@ -79,7 +104,7 @@ impl<B: QspiBus, RST: OutputPin> Amoled<B, RST> {
         if self.controls_shown == Some(pressed) {
             return Ok(false);
         }
-        let theme = Theme::from_palette(self.palette);
+        let (theme, offset) = (self.theme(), self.offset);
         let mut y = CONTROLS_AREA.y;
         let end = CONTROLS_AREA.bottom();
         self.lcd.write_area(CONTROLS_AREA, &mut self.strip, |buf| {
@@ -87,7 +112,7 @@ impl<B: QspiBus, RST: OutputPin> Amoled<B, RST> {
                 return 0;
             }
             let rows = CONTROL_ROWS_PER_STRIP.min(end - y);
-            let n = controls::render_rows(y, rows, pressed, theme, buf);
+            let n = controls::render_rows(y, rows, pressed, theme, offset, buf);
             y += rows;
             n
         })?;
@@ -117,11 +142,13 @@ mod tests {
         let mut src = [0u8; SRC_BYTES];
         src[0] = 0x80;
         src[SRC_BYTES - 1] = 0x01;
+        a.set_look(Offset::new(-2, 4), false);
         a.flush_frame(&src, false).unwrap();
 
-        let mut expected = vec![0u8; scale::strip_bytes(SRC_H as usize)];
-        scale::scale_strip(&src, 0, SRC_H as usize, Palette::DEFAULT, false, &mut expected);
-        assert_eq!(log.borrow()[0], reg(0x2A, &[0, 48, 1, 175]));
+        let mut expected = vec![0u8; FRAME_AREA.h as usize * FRAME_ROW_BYTES];
+        scale::frame_rows(&src, 0, FRAME_AREA.h, Offset::new(-2, 4), Palette::DEFAULT, false, &mut expected);
+        assert_eq!(log.borrow()[0], reg(0x2A, &[0, 44, 1, 179]));
+        assert_eq!(log.borrow()[1], reg(0x2B, &[0, 30, 0, 229]));
         assert_eq!(pixels(a), expected);
     }
 
@@ -134,7 +161,32 @@ mod tests {
         assert_eq!(log.borrow().len(), n, "unchanged mask must not touch the bus");
 
         let mut expected = vec![0u8; CONTROLS_AREA.w as usize * CONTROLS_AREA.h as usize * 2];
-        controls::render_rows(CONTROLS_AREA.y, CONTROLS_AREA.h, 0b0001_0001, Theme::from_palette(Palette::DEFAULT), &mut expected);
+        controls::render_rows(
+            CONTROLS_AREA.y,
+            CONTROLS_AREA.h,
+            0b0001_0001,
+            Theme::from_palette(Palette::DEFAULT),
+            Offset::ZERO,
+            &mut expected,
+        );
+        assert_eq!(pixels(a), expected);
+    }
+
+    #[test]
+    fn look_change_redraws_controls_dimmed_and_shifted() {
+        let (mut a, _) = amoled();
+        a.draw_controls(0).unwrap();
+        a.set_look(Offset::ZERO, false);
+        assert!(!a.draw_controls(0).unwrap(), "same look: no redraw");
+
+        let (mut a, _) = amoled();
+        a.draw_controls(0).unwrap();
+        a.lcd().bus_mut().pixels.clear();
+        a.set_look(Offset::new(4, -4), true);
+        assert!(a.draw_controls(0).unwrap());
+        let mut expected = vec![0u8; CONTROLS_AREA.w as usize * CONTROLS_AREA.h as usize * 2];
+        let theme = Theme::dimmed(Palette::DEFAULT);
+        controls::render_rows(CONTROLS_AREA.y, CONTROLS_AREA.h, 0, theme, Offset::new(4, -4), &mut expected);
         assert_eq!(pixels(a), expected);
     }
 

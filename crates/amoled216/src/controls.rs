@@ -8,7 +8,7 @@
 //! Idle controls are drawn as dim outlines (AMOLED burn-in: no large static
 //! bright areas). A pressed control fills with the full foreground color.
 
-use crate::layout::{button, Rect, CONTROLS, DPAD_DRAW, SCREEN_W};
+use crate::layout::{button, Offset, Rect, CONTROLS, DPAD_DRAW, SCREEN_W};
 use crate::scale::Palette;
 
 /// Colors for the controls, in RGB565.
@@ -23,6 +23,11 @@ impl Theme {
     /// Idle outlines at 40% of the game's foreground color.
     pub const fn from_palette(p: Palette) -> Self {
         Theme { idle: dim565(p.fg, 2, 5), active: p.fg, bg: p.bg }
+    }
+
+    /// After idle (`burnin`): outlines at 15%; a press still lights fully.
+    pub const fn dimmed(p: Palette) -> Self {
+        Theme { idle: dim565(p.fg, 3, 20), active: p.fg, bg: p.bg }
     }
 }
 
@@ -50,15 +55,20 @@ enum Part {
 }
 
 /// Render screen rows `y0..y0 + n_rows` (full 480 px width) as big-endian
-/// RGB565 into `out`. Pixels outside every control are `theme.bg`.
+/// RGB565 into `out`, with the controls moved by `offset` (burn-in shift;
+/// hit zones don't move). Pixels outside every control are `theme.bg`.
 /// Returns the number of bytes written.
-pub fn render_rows(y0: u16, n_rows: u16, pressed: u8, theme: Theme, out: &mut [u8]) -> usize {
+pub fn render_rows(y0: u16, n_rows: u16, pressed: u8, theme: Theme, offset: Offset, out: &mut [u8]) -> usize {
     let len = n_rows as usize * SCREEN_W as usize * 2;
     assert!(out.len() >= len, "row buffer too small");
     for (i, px) in out[..len].as_chunks_mut::<2>().0.iter_mut().enumerate() {
-        let x = (i % SCREEN_W as usize) as u16;
-        let y = y0 + (i / SCREEN_W as usize) as u16;
-        *px = pixel(x, y, pressed, theme).to_be_bytes();
+        let x = (i % SCREEN_W as usize) as i32 - offset.dx as i32;
+        let y = (y0 as usize + i / SCREEN_W as usize) as i32 - offset.dy as i32;
+        *px = match (u16::try_from(x), u16::try_from(y)) {
+            (Ok(x), Ok(y)) => pixel(x, y, pressed, theme),
+            _ => theme.bg,
+        }
+        .to_be_bytes();
     }
     len
 }
@@ -329,11 +339,24 @@ mod tests {
     fn render_rows_matches_pixel() {
         let y0 = CONTROLS_AREA.y + 100;
         let mut out = vec![0u8; 4 * SCREEN_W as usize * 2];
-        let n = render_rows(y0, 4, bit(A), THEME, &mut out);
+        let n = render_rows(y0, 4, bit(A), THEME, Offset::ZERO, &mut out);
         assert_eq!(n, out.len());
         for (i, px) in out.chunks(2).enumerate() {
             let (x, y) = ((i % 480) as u16, y0 + (i / 480) as u16);
             assert_eq!(u16::from_be_bytes([px[0], px[1]]), pixel(x, y, bit(A), THEME));
+        }
+    }
+
+    #[test]
+    fn render_rows_shifts_the_drawing() {
+        let y0 = CONTROLS_AREA.y + 100;
+        let off = Offset::new(-4, 2);
+        let mut out = vec![0u8; 4 * SCREEN_W as usize * 2];
+        render_rows(y0, 4, bit(A), THEME, off, &mut out);
+        for (i, px) in out.chunks(2).enumerate() {
+            let (x, y) = ((i % 480) as u16, y0 + (i / 480) as u16);
+            let want = if x + 4 >= SCREEN_W { THEME.bg } else { pixel(x + 4, y - 2, bit(A), THEME) };
+            assert_eq!(u16::from_be_bytes([px[0], px[1]]), want, "({x},{y})");
         }
     }
 }

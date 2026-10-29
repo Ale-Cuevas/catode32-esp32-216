@@ -124,9 +124,14 @@ impl Renderer {
     }
 
     pub fn flush(&mut self) {
-        // The touch controls highlight whatever is pressed right now.
+        // The touch controls highlight whatever is pressed right now; the
+        // clock drives the burn-in dimming and shift.
         #[cfg(feature = "s3")]
-        self.display.set_pressed(crate::s3::input::pressed_mask());
+        {
+            self.display.set_pressed(crate::s3::input::pressed_mask());
+            let now = crate::platform::time::Instant::now().duration_since_epoch();
+            self.display.set_clock(now.as_millis());
+        }
         self.display.flush().unwrap();
     }
 

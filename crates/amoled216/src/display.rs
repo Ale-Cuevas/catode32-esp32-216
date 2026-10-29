@@ -2,6 +2,7 @@
 //! framebuffer (the same layout as core's `desktop_fb`) that `flush` scales
 //! onto the panel. It has the method set the Renderer calls on the SSD1306
 //! (`clear_buffer`, `flush`, `set_invert`, `set_display_on`, `draw_iter`).
+//! Given a clock (`set_clock`), each flush also applies `burnin`.
 
 use core::convert::Infallible;
 
@@ -11,7 +12,8 @@ use embedded_graphics::{
 use embedded_hal::delay::DelayNs;
 use embedded_hal::digital::OutputPin;
 
-use crate::co5300::{Error, QspiBus};
+use crate::burnin::{BurnIn, Look};
+use crate::co5300::{Error, QspiBus, DEFAULT_BRIGHTNESS};
 use crate::layout::{SRC_H, SRC_W};
 use crate::panel::Amoled;
 use crate::scale::SRC_BYTES;
@@ -26,12 +28,27 @@ pub struct AmoledDisplay<B, RST, D> {
     on: bool,
     /// Buttons to highlight in the controls band on the next flush.
     pressed: u8,
+    burnin: BurnIn,
+    /// Milliseconds since boot, `None` = no clock: no burn-in mitigation.
+    now_ms: Option<u64>,
+    /// What the panel's brightness register holds.
+    brightness: u8,
 }
 
 impl<B: QspiBus, RST: OutputPin, D: DelayNs> AmoledDisplay<B, RST, D> {
     /// Takes an already initialized panel (`Amoled::init`).
     pub fn new(panel: Amoled<B, RST>, delay: D) -> Self {
-        Self { panel, delay, buf: [0; SRC_BYTES], invert: false, on: true, pressed: 0 }
+        Self {
+            panel,
+            delay,
+            buf: [0; SRC_BYTES],
+            invert: false,
+            on: true,
+            pressed: 0,
+            burnin: BurnIn::new(),
+            now_ms: None,
+            brightness: DEFAULT_BRIGHTNESS,
+        }
     }
 
     pub fn release(self) -> (Amoled<B, RST>, D) {
@@ -46,11 +63,17 @@ impl<B: QspiBus, RST: OutputPin, D: DelayNs> AmoledDisplay<B, RST, D> {
         self.buf.fill(0);
     }
 
-    /// Send the frame, then the controls if the highlight changed. Nothing
-    /// is sent while the panel is off.
+    /// Send the frame, then the controls if the highlight, dimming or shift
+    /// changed. Nothing is sent while the panel is off.
     pub fn flush(&mut self) -> Result<(), Error<B::Error, RST::Error>> {
         if !self.on {
             return Ok(());
+        }
+        let look = self.look();
+        self.panel.set_look(look.offset, look.controls_dim);
+        if look.brightness != self.brightness {
+            self.panel.lcd().set_brightness(look.brightness)?;
+            self.brightness = look.brightness;
         }
         self.panel.flush_frame(&self.buf, self.invert)?;
         self.panel.draw_controls(self.pressed)?;
@@ -79,6 +102,18 @@ impl<B: QspiBus, RST: OutputPin, D: DelayNs> AmoledDisplay<B, RST, D> {
 
     pub fn set_pressed(&mut self, mask: u8) {
         self.pressed = mask;
+    }
+
+    /// Current time for burn-in mitigation; call before each flush.
+    pub fn set_clock(&mut self, now_ms: u64) {
+        self.now_ms = Some(now_ms);
+    }
+
+    fn look(&mut self) -> Look {
+        match self.now_ms {
+            Some(t) => self.burnin.update(t, self.pressed),
+            None => Look::PLAIN,
+        }
     }
 
     pub fn is_on(&self) -> bool {
@@ -132,8 +167,10 @@ impl<B: QspiBus, RST: OutputPin, D: DelayNs> DrawTarget for AmoledDisplay<B, RST
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::burnin::{offset_at, DIM_BRIGHTNESS, PANEL_DIM_MS};
     use crate::co5300::mock::{lcd, reg, Bus, Delay, Pin, Txn};
-    use crate::scale::{self, Palette};
+    use crate::layout::{Offset, FRAME_AREA};
+    use crate::scale::{self, Palette, FRAME_ROW_BYTES};
     use embedded_graphics::prelude::*;
 
     type Display = AmoledDisplay<Bus, Pin, Delay>;
@@ -149,9 +186,38 @@ mod tests {
     }
 
     fn expected_frame(src: &[u8; SRC_BYTES], invert: bool) -> Vec<u8> {
-        let mut out = vec![0u8; scale::strip_bytes(SRC_H as usize)];
-        scale::scale_strip(src, 0, SRC_H as usize, Palette::DEFAULT, invert, &mut out);
+        shifted_frame(src, invert, Offset::ZERO)
+    }
+
+    fn shifted_frame(src: &[u8; SRC_BYTES], invert: bool, offset: Offset) -> Vec<u8> {
+        let mut out = vec![0u8; FRAME_AREA.h as usize * FRAME_ROW_BYTES];
+        scale::frame_rows(src, 0, FRAME_AREA.h, offset, Palette::DEFAULT, invert, &mut out);
         out
+    }
+
+    #[test]
+    fn clock_turns_on_burn_in_mitigation() {
+        let (mut d, log) = display();
+        d.set_clock(0);
+        d.flush().unwrap();
+        let sent = take_pixels(&mut d);
+        let frame = shifted_frame(&[0u8; SRC_BYTES], false, offset_at(0));
+        assert_eq!(&sent[..frame.len()], &frame[..]);
+        assert!(!log.borrow().contains(&reg(0x51, &[DIM_BRIGHTNESS])));
+
+        // Idle long enough: panel dims once, controls redraw dimmed.
+        d.set_clock(PANEL_DIM_MS);
+        d.flush().unwrap();
+        assert!(take_pixels(&mut d).len() > frame.len());
+        let dims = |l: &Vec<Txn>| l.iter().filter(|t| **t == reg(0x51, &[DIM_BRIGHTNESS])).count();
+        assert_eq!(dims(&log.borrow()), 1);
+        d.flush().unwrap();
+        assert_eq!(dims(&log.borrow()), 1, "brightness only sent on change");
+
+        // A press restores full brightness.
+        d.set_pressed(0b0001_0000);
+        d.flush().unwrap();
+        assert!(log.borrow().contains(&reg(0x51, &[DEFAULT_BRIGHTNESS])));
     }
 
     #[test]

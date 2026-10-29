@@ -286,6 +286,8 @@ enum View {
         display: SimulatorDisplay<Rgb888>,
         palette: amoled::scale::Palette,
         screen: Vec<u8>,
+        burnin: amoled::burnin::BurnIn,
+        start: Instant,
     },
 }
 
@@ -311,6 +313,8 @@ impl View {
                 bg: opts.bg.map_or(default.bg, to565),
             },
             screen: vec![0; amoled::SCREEN_BYTES],
+            burnin: amoled::burnin::BurnIn::new(),
+            start: Instant::now(),
         }
     }
 
@@ -342,7 +346,12 @@ impl View {
                 display,
                 palette,
                 screen,
-            } => blit_amoled(renderer, display, *palette, screen, pressed),
+                burnin,
+                start,
+            } => {
+                let look = burnin.update(start.elapsed().as_millis() as u64, pressed);
+                blit_amoled(renderer, display, *palette, screen, pressed, look)
+            }
         }
     }
 }
@@ -374,6 +383,7 @@ fn blit_amoled(
     palette: amoled::scale::Palette,
     screen: &mut [u8],
     pressed: u8,
+    look: amoled::burnin::Look,
 ) {
     let fb = renderer.framebuffer();
     // Display off (soft sleep): the panel goes fully black, controls too.
@@ -390,11 +400,13 @@ fn blit_amoled(
             }
         }
     }
-    amoled::compose_screen(&src, pressed, palette, fb.invert(), screen);
+    amoled::compose_screen(&src, pressed, palette, fb.invert(), look, screen);
 
+    // Emulate the panel brightness register relative to its default.
+    let (num, den) = (look.brightness as u16, amoled::co5300::DEFAULT_BRIGHTNESS as u16);
     let side = amoled::layout::SCREEN_W as usize;
     let pixels = screen.as_chunks::<2>().0.iter().enumerate().map(|(i, &px)| {
-        let c = u16::from_be_bytes(px);
+        let c = amoled::controls::dim565(u16::from_be_bytes(px), num.min(den), den);
         Pixel(Point::new((i % side) as i32, (i / side) as i32), rgb565_to_888(c))
     });
     let _ = target.draw_iter(pixels);

@@ -126,7 +126,14 @@ fn capture_amoled(out: &Path, shot: &Shot) {
         }
     }
     let mut screen = vec![0u8; amoled::SCREEN_BYTES];
-    amoled::compose_screen(&src, 0, amoled::scale::Palette::DEFAULT, false, &mut screen);
+    amoled::compose_screen(
+        &src,
+        0,
+        amoled::scale::Palette::DEFAULT,
+        false,
+        amoled::burnin::Look::PLAIN,
+        &mut screen,
+    );
 
     let side = amoled::layout::SCREEN_W as usize;
     let mut raw = Vec::with_capacity(side * (side * 3 + 1));

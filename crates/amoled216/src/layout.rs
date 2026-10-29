@@ -60,8 +60,40 @@ impl Rect {
 
 pub const SCREEN: Rect = Rect::new(0, 0, SCREEN_W, SCREEN_H);
 
-/// Scaled game frame: 384x192, centered horizontally, near the top.
-pub const VIEWPORT: Rect = Rect::new((SCREEN_W - SRC_W * SCALE) / 2, 24, SRC_W * SCALE, SRC_H * SCALE);
+/// Scaled game frame: 384x192, centered horizontally, below the status bar.
+pub const VIEWPORT: Rect = Rect::new((SCREEN_W - SRC_W * SCALE) / 2, 34, SRC_W * SCALE, SRC_H * SCALE);
+
+/// Burn-in pixel shift: the frame, status bar and controls move up to this
+/// many px each way inside fixed panel windows (`burnin`).
+pub const SHIFT_MAX: u16 = 4;
+
+/// Panel window the game frame is streamed into: the viewport plus the
+/// shift margin, so a shifted frame always overwrites its old position.
+pub const FRAME_AREA: Rect = Rect::new(
+    VIEWPORT.x - SHIFT_MAX,
+    VIEWPORT.y - SHIFT_MAX,
+    VIEWPORT.w + 2 * SHIFT_MAX,
+    VIEWPORT.h + 2 * SHIFT_MAX,
+);
+
+/// Full-width band above the frame for the battery indicator (`status`).
+pub const STATUS_AREA: Rect = Rect::new(0, 0, SCREEN_W, FRAME_AREA.y);
+
+/// Burn-in shift of everything drawn, in px. Content moves; the panel
+/// windows don't, so 2-px window alignment is unaffected.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Offset {
+    pub dx: i8,
+    pub dy: i8,
+}
+
+impl Offset {
+    pub const ZERO: Offset = Offset { dx: 0, dy: 0 };
+
+    pub const fn new(dx: i8, dy: i8) -> Self {
+        Offset { dx, dy }
+    }
+}
 
 /// Logical button indices, same order and bit positions as
 /// `catode32_core::input::Button::ALL` (bit `i` of the mask = index `i`).
@@ -113,6 +145,14 @@ pub const CONTROLS_AREA: Rect = Rect::new(0, 240, SCREEN_W, SCREEN_H - 240);
 /// Minimum hit-zone edge, about 7 mm on this panel.
 const MIN_HIT: u16 = 60;
 
+/// `inner` stays inside `outer` when moved `SHIFT_MAX` px any way.
+const fn within_shift(inner: &Rect, outer: &Rect) -> bool {
+    inner.x >= outer.x + SHIFT_MAX
+        && inner.y >= outer.y + SHIFT_MAX
+        && inner.right() + SHIFT_MAX <= outer.right()
+        && inner.bottom() + SHIFT_MAX <= outer.bottom()
+}
+
 const fn check_rect(r: &Rect) {
     assert!(r.is_even_aligned(), "rect not 2-px aligned");
     assert!(SCREEN.contains_rect(r), "rect off screen");
@@ -128,6 +168,11 @@ const _: () = {
     assert!(DPAD_DRAW.w == DPAD_DRAW.h && DPAD_DRAW.w.is_multiple_of(3), "D-pad cross needs 3 equal arms");
     check_rect(&CONTROLS_AREA);
     assert!(!CONTROLS_AREA.intersects(&VIEWPORT));
+    check_rect(&FRAME_AREA);
+    check_rect(&STATUS_AREA);
+    assert!(!FRAME_AREA.intersects(&CONTROLS_AREA));
+    assert!(!FRAME_AREA.intersects(&STATUS_AREA));
+    assert!(within_shift(&DPAD_DRAW, &CONTROLS_AREA), "shifted D-pad leaves its band");
     assert!(CONTROLS_AREA.contains_rect(&DPAD_HIT));
 
     let mut i = 0;
@@ -140,6 +185,7 @@ const _: () = {
         assert!(!c.hit.intersects(&VIEWPORT));
         assert!(!c.hit.intersects(&DPAD_HIT));
         assert!(CONTROLS_AREA.contains_rect(&c.hit));
+        assert!(within_shift(&c.draw, &CONTROLS_AREA), "shifted control leaves its band");
         let mut j = i + 1;
         while j < CONTROLS.len() {
             assert!(!c.hit.intersects(&CONTROLS[j].hit), "control hit zones overlap");
@@ -155,7 +201,9 @@ mod tests {
 
     #[test]
     fn viewport_is_3x_centered() {
-        assert_eq!(VIEWPORT, Rect::new(48, 24, 384, 192));
+        assert_eq!(VIEWPORT, Rect::new(48, 34, 384, 192));
+        assert_eq!(FRAME_AREA, Rect::new(44, 30, 392, 200));
+        assert_eq!(STATUS_AREA, Rect::new(0, 0, 480, 30));
         assert_eq!(VIEWPORT.x, SCREEN_W - VIEWPORT.right());
     }
 
